@@ -1,0 +1,52 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.env
+.venv/
+venv/
+env/
+
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+~$*
+
+# Outputs (can be regenerated)
+outputs/*
+!outputs/README.md
+
+# Data (raw/processed may contain sensitive business data)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Common result files
+*.xlsx
+*.xls
+*.csv
+*.json
+*.txt
+!README.md
+!LICENSE_NOTICE.md
+!requirements.txt
+
+# Keep docs and source code tracked
+!docs/**
+!src/**
+!tests/**

@@ -50,3 +50,9 @@ data/processed/*
 !docs/**
 !src/**
 !tests/**
+
+# Re-ignore cache artifacts under re-included paths
+src/**/__pycache__/
+tests/**/__pycache__/
+src/**/*.pyc
+tests/**/*.pyc

@@ -3,7 +3,7 @@
 ## 项目简介
 本项目用于支撑《北京市医疗机构创新药品配备及使用模式研究》的数据处理与分析工作。仓库保留了原始 Python 脚本，并补充了文档化目录、统一入口与复现说明，便于研究归档、GitHub 展示和后续维护。
 
-最终研究报告文件位于：`docs/final_report.pdf`。
+最终研究报告文件位于：`北京市医疗机构创新药品配备及使用模式研究.pdf`。
 
 ## 研究背景
 根据最终报告前言，项目围绕北京市创新药临床可及性与使用模式开展研究，背景包括国家与北京市 2025 年创新药支持政策落地需求。研究基于 2021-2023 年北京市公立医院药品使用数据，并结合企业调研、医院调研与专家咨询。
@@ -15,8 +15,8 @@
 ├─ requirements.txt
 ├─ .gitignore
 ├─ LICENSE_NOTICE.md
+├─ 北京市医疗机构创新药品配备及使用模式研究.pdf
 ├─ docs/
-│  ├─ final_report.pdf
 │  ├─ project_background.md
 │  ├─ methodology.md
 │  └─ data_dictionary.md
@@ -101,7 +101,7 @@ python src/run_pipeline.py --category analysis
 建议统一输出到 `outputs/`（原脚本默认可能输出到项目根目录，详见 `src/script_registry.py`）。
 
 ## 最终报告链接
-- [最终研究报告（PDF）](docs/final_report.pdf)
+- [最终研究报告（PDF）](北京市医疗机构创新药品配备及使用模式研究.pdf)
 
 ## 注意事项
 - 多数原始脚本存在固定文件名假设，运行前需确保输入文件名与脚本一致。

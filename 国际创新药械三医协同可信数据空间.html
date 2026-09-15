@@ -1,0 +1,2177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>国际创新药械“三医协同”可信数据空间</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Alpine.js for interactivity -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    
+    <!-- Three.js for 3D particle animation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- PapaParse for CSV parsing (kept for other potential uses) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <!-- D3.js for new data viewer -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <!-- ECharts (for data-catalog region map) -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
+    <style>
+        /* Custom styles to complement Tailwind CSS */
+        body {
+            font-family: 'Inter', 'Microsoft YaHei', sans-serif;
+            background-color: #f4f8fc;
+            scroll-behavior: smooth;
+        }
+        .hero-gradient {
+            background: linear-gradient(120deg, #1e3a8a 0%, #3b82f6 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+        .card-hover-effect {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card-hover-effect:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+        .section-title {
+            font-size: 2.25rem; /* 36px */
+            font-weight: 700;
+            line-height: 2.5rem; /* 40px */
+            color: #1e293b; /* slate-800 */
+        }
+        .section-subtitle {
+            font-size: 1.125rem; /* 18px */
+            color: #475569; /* slate-600 */
+            margin-top: 1rem;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .tab-button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease-in-out;
+        }
+        .tab-button.active {
+            background-color: #3b82f6; /* blue-500 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .tab-button:not(.active) {
+            color: #475569; /* slate-600 */
+        }
+        .tab-button:not(.active):hover {
+            background-color: #e2e8f0; /* slate-200 */
+            color: #1e293b; /* slate-800 */
+        }
+        .solution-tab-button {
+            padding: 0.75rem 1.5rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            border-radius: 9999px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .solution-tab-button.active {
+              background-color: #1e3a8a; /* dark blue */
+              color: white;
+        }
+        .solution-tab-button:not(.active) {
+            background-color: rgba(255, 255, 255, 0.95);
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+            box-shadow: 0 1px 2px 0 rgb(59 130 246 / 0.06);
+        }
+        .solution-tab-button:not(.active):hover {
+            background-color: #e0f2fe;
+        }
+        .partner-logo {
+            transition: all 0.3s ease;
+            filter: grayscale(100%);
+            opacity: 0.7;
+        }
+        .partner-logo:hover {
+            filter: grayscale(0%);
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        /* Timeline styles */
+        .timeline-item {
+            position: relative;
+            padding-left: 2.5rem;
+            padding-bottom: 2rem;
+            border-left: 2px solid #e2e8f0;
+        }
+        .timeline-item:last-child {
+            border-left: 2px solid transparent;
+            padding-bottom: 0;
+        }
+        .timeline-dot {
+            position: absolute;
+            left: -0.5625rem;
+            top: 0.25rem;
+            width: 1.125rem;
+            height: 1.125rem;
+            background-color: white;
+            border: 2px solid #3b82f6;
+            border-radius: 9999px;
+        }
+        /* AI Assistant Styles */
+        .chat-bubble-user {
+            background-color: #3b82f6; /* blue-500 */
+            color: white;
+        }
+        .chat-bubble-bot {
+            background-color: #e2e8f0; /* slate-200 */
+            color: #1e293b; /* slate-800 */
+        }
+        /* Hide elements controlled by Alpine.js until it's initialized */
+        [x-cloak] { display: none !important; }
+        [hidden] { display: none !important; }
+
+        /* Styles for the new Data Viewer */
+        .table-container {
+            max-height: 60vh;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+        .resizable-th {
+            position: relative;
+        }
+        .resizer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 5px;
+            cursor: col-resize;
+            user-select: none;
+            height: 100%;
+            background-color: transparent;
+        }
+        .resizer:hover, .resizing {
+            background-color: #a0aec0; /* gray-400 */
+        }
+        .column-toggle-dropdown, .column-filter-dropdown {
+            position: absolute;
+            z-index: 10;
+            background-color: white;
+            border: 1px solid #e2e8f0; /* gray-200 */
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 0.5rem;
+        }
+        .column-filter-dropdown {
+            width: 250px;
+        }
+        .filter-options-container {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .filter-button.active svg {
+            color: #3b82f6; /* blue-500 */
+        }
+    </style>
+</head>
+<body x-data="appData()" x-init="initApp()">
+
+    <!-- Header -->
+    <header class="bg-white/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm" x-data="{ mobileMenuOpen: false }">
+        <nav class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <!-- Logo and Title -->
+                <div class="flex items-center space-x-3 cursor-pointer" @click="activePage = 'home'">
+                    <svg class="h-10 w-10 text-blue-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="M12 11v0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"></path><path d="M12 14c-2.5 0-4.5 2-4.5 4.5v.5h9v-.5c0-2.5-2-4.5-4.5-4.5z"></path></svg>
+                    <span class="text-xl font-bold text-slate-800" x-text="content[lang].header.title"></span>
+                </div>
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#" @click.prevent="activePage = 'home'" class="text-slate-600 hover:text-blue-600 transition-colors" :class="{ 'text-blue-600 font-semibold': activePage === 'home' }" x-text="content[lang].header.nav.home"></a>
+                    <a href="#" @click.prevent="activePage = 'data-catalog'" class="text-slate-600 hover:text-blue-600 transition-colors" :class="{ 'text-blue-600 font-semibold': activePage === 'data-catalog' }" x-text="content[lang].header.nav.dataCatalog"></a>
+                    <a href="#" @click.prevent="activePage = 'solutions'" class="text-slate-600 hover:text-blue-600 transition-colors" :class="{ 'text-blue-600 font-semibold': activePage === 'solutions' }" x-text="content[lang].header.nav.solutions"></a>
+                    <a href="#" @click.prevent="activePage = 'partners'" class="text-slate-600 hover:text-blue-600 transition-colors" :class="{ 'text-blue-600 font-semibold': activePage === 'partners' }" x-text="content[lang].header.nav.partners"></a>
+                    <a href="#" @click.prevent="activePage = 'about'" class="text-slate-600 hover:text-blue-600 transition-colors" :class="{ 'text-blue-600 font-semibold': activePage === 'about' }" x-text="content[lang].header.nav.about"></a>
+                </div>
+                <!-- Desktop Actions -->
+                <div class="hidden md:flex items-center space-x-4">
+                    <button class="bg-blue-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors" x-text="content[lang].header.login"></button>
+                    <div class="flex items-center space-x-1 text-sm">
+                        <button @click="setLang('zh')" :class="lang === 'zh' ? 'font-bold text-blue-600' : 'text-slate-500'">中文</button>
+                        <span>/</span>
+                        <button @click="setLang('en')" :class="lang === 'en' ? 'font-bold text-blue-600' : 'text-slate-500'">EN</button>
+                    </div>
+                </div>
+                <!-- Mobile Menu Button -->
+                <div class="md:hidden">
+                    <button @click="mobileMenuOpen = !mobileMenuOpen">
+                        <i data-lucide="menu" class="w-6 h-6 text-slate-700"></i>
+                    </button>
+                </div>
+            </div>
+        </nav>
+        <!-- Mobile Menu -->
+        <div x-show="mobileMenuOpen" x-cloak @click.away="mobileMenuOpen = false" class="md:hidden bg-white py-4 px-6">
+            <a href="#" @click.prevent="activePage = 'home'; mobileMenuOpen = false" class="block py-2 text-slate-600 hover:text-blue-600" :class="{ 'text-blue-600 font-semibold': activePage === 'home' }" x-text="content[lang].header.nav.home"></a>
+            <a href="#" @click.prevent="activePage = 'data-catalog'; mobileMenuOpen = false" class="block py-2 text-slate-600 hover:text-blue-600" :class="{ 'text-blue-600 font-semibold': activePage === 'data-catalog' }" x-text="content[lang].header.nav.dataCatalog"></a>
+            <a href="#" @click.prevent="activePage = 'solutions'; mobileMenuOpen = false" class="block py-2 text-slate-600 hover:text-blue-600" :class="{ 'text-blue-600 font-semibold': activePage === 'solutions' }" x-text="content[lang].header.nav.solutions"></a>
+            <a href="#" @click.prevent="activePage = 'partners'; mobileMenuOpen = false" class="block py-2 text-slate-600 hover:text-blue-600" :class="{ 'text-blue-600 font-semibold': activePage === 'partners' }" x-text="content[lang].header.nav.partners"></a>
+            <a href="#" @click.prevent="activePage = 'about'; mobileMenuOpen = false" class="block py-2 text-slate-600 hover:text-blue-600" :class="{ 'text-blue-600 font-semibold': activePage === 'about' }" x-text="content[lang].header.nav.about"></a>
+            <button class="w-full mt-4 bg-blue-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors" x-text="content[lang].header.login"></button>
+              <div class="flex items-center justify-center space-x-2 text-sm mt-4">
+                <button @click="setLang('zh')" :class="lang === 'zh' ? 'font-bold text-blue-600' : 'text-slate-500'">中文</button>
+                <span>/</span>
+                <button @click="setLang('en')" :class="lang === 'en' ? 'font-bold text-blue-600' : 'text-slate-500'">EN</button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Home Page -->
+        <div x-show="activePage === 'home'" x-cloak>
+            <!-- Hero Section -->
+            <section class="hero-gradient text-white">
+                <canvas id="particle-canvas"></canvas>
+                <div class="hero-content container mx-auto px-6 py-24 md:py-32 text-center">
+                    <h1 class="text-4xl md:text-6xl font-bold leading-tight" x-text="content[lang].home.hero.title"></h1>
+                    <p class="mt-6 text-lg md:text-xl text-blue-100 max-w-3xl mx-auto" x-text="content[lang].home.hero.subtitle"></p>
+                    <div class="mt-10 flex justify-center flex-wrap gap-4">
+                        <button @click="activePage = 'data-catalog'" class="bg-white text-blue-700 font-semibold px-8 py-3 rounded-lg hover:bg-blue-50 transition-transform transform hover:scale-105" x-text="content[lang].home.hero.cta1"></button>
+                        <button @click="activePage = 'solutions'" class="bg-blue-500/50 text-white font-semibold px-8 py-3 rounded-lg hover:bg-blue-500/80 transition-transform transform hover:scale-105" x-text="content[lang].home.hero.cta2"></button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Features Section -->
+            <section class="py-20 bg-white">
+                <div class="container mx-auto px-6">
+                    <div class="text-center mb-16">
+                        <h2 class="section-title" x-text="content[lang].home.features.title"></h2>
+                        <p class="section-subtitle" x-text="content[lang].home.features.subtitle"></p>
+                    </div>
+                    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                        <div class="text-center p-6 bg-slate-50 rounded-xl">
+                            <div class="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mx-auto mb-4">
+                                <i data-lucide="shield-check" class="w-8 h-8"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold text-slate-800 mb-2" x-text="content[lang].home.features.cards[0].title"></h3>
+                            <p class="text-slate-600" x-text="content[lang].home.features.cards[0].description"></p>
+                        </div>
+                        <div class="text-center p-6 bg-slate-50 rounded-xl">
+                            <div class="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mx-auto mb-4">
+                                <i data-lucide="file-check-2" class="w-8 h-8"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold text-slate-800 mb-2" x-text="content[lang].home.features.cards[1].title"></h3>
+                            <p class="text-slate-600" x-text="content[lang].home.features.cards[1].description"></p>
+                        </div>
+                        <div class="text-center p-6 bg-slate-50 rounded-xl">
+                            <div class="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mx-auto mb-4">
+                                <i data-lucide="zap" class="w-8 h-8"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold text-slate-800 mb-2" x-text="content[lang].home.features.cards[2].title"></h3>
+                            <p class="text-slate-600" x-text="content[lang].home.features.cards[2].description"></p>
+                        </div>
+                        <div class="text-center p-6 bg-slate-50 rounded-xl">
+                            <div class="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mx-auto mb-4">
+                                <i data-lucide="award" class="w-8 h-8"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold text-slate-800 mb-2" x-text="content[lang].home.features.cards[3].title"></h3>
+                            <p class="text-slate-600" x-text="content[lang].home.features.cards[3].description"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- High-Value Scenarios Section -->
+            <section class="py-20">
+                <div class="container mx-auto px-6">
+                    <div class="text-center mb-16">
+                        <h2 class="section-title" x-text="content[lang].home.scenarios.title"></h2>
+                        <p class="section-subtitle" x-text="content[lang].home.scenarios.subtitle"></p>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <div class="bg-white p-8 rounded-xl shadow-md flex items-start space-x-6 card-hover-effect">
+                            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-blue-600 text-white">
+                                <i data-lucide="file-plus-2" class="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-800" x-text="content[lang].home.scenarios.cards[0].title"></h3>
+                                <p class="mt-2 text-slate-600" x-text="content[lang].home.scenarios.cards[0].description"></p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-8 rounded-xl shadow-md flex items-start space-x-6 card-hover-effect">
+                            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-blue-600 text-white">
+                                <i data-lucide="shield-plus" class="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-800" x-text="content[lang].home.scenarios.cards[1].title"></h3>
+                                <p class="mt-2 text-slate-600" x-text="content[lang].home.scenarios.cards[1].description"></p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-8 rounded-xl shadow-md flex items-start space-x-6 card-hover-effect">
+                            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-blue-600 text-white">
+                                <i data-lucide="flask-conical" class="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-800" x-text="content[lang].home.scenarios.cards[2].title"></h3>
+                                <p class="mt-2 text-slate-600" x-text="content[lang].home.scenarios.cards[2].description"></p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-8 rounded-xl shadow-md flex items-start space-x-6 card-hover-effect">
+                            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-blue-600 text-white">
+                                <i data-lucide="leaf" class="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-800" x-text="content[lang].home.scenarios.cards[3].title"></h3>
+                                <p class="mt-2 text-slate-600" x-text="content[lang].home.scenarios.cards[3].description"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- CTA Section -->
+            <section class="bg-white py-20">
+                <div class="container mx-auto px-6 text-center">
+                    <h2 class="text-3xl font-bold text-slate-800" x-text="content[lang].home.cta.title"></h2>
+                    <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto" x-text="content[lang].home.cta.subtitle"></p>
+                    <div class="mt-8">
+                        <button class="bg-blue-600 text-white font-semibold px-8 py-3 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105" x-text="content[lang].home.cta.button"></button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Data Catalog Page -->
+        <div x-show="activePage === 'data-catalog'" x-cloak>
+            <div class="container mx-auto px-6 py-12">
+                <div class="text-center mb-12">
+                    <h1 class="section-title" x-text="content[lang].dataCatalog.title"></h1>
+                    <p class="section-subtitle max-w-4xl" x-text="content[lang].dataCatalog.subtitle"></p>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-lg p-6 sm:p-8 md:p-12">
+                    <!-- Search Bar -->
+                    <div class="relative max-w-3xl mx-auto mb-10">
+                        <input type="text" x-model.debounce.300ms="searchQuery" :placeholder="content[lang].dataCatalog.searchPlaceholder" class="w-full pl-12 pr-4 py-3 border border-slate-300 rounded-full bg-slate-50 focus:ring-2 focus:ring-blue-400 focus:border-blue-500 text-base md:text-lg transition">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i data-lucide="search" class="w-6 h-6 text-slate-400"></i>
+                        </div>
+                    </div>
+
+                    <!-- 按数据类型 -->
+                    <div class="mb-8">
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-2">
+                            <span class="font-semibold text-slate-700 flex-shrink-0 w-24 text-left sm:text-right" x-text="content[lang].dataCatalog.regionFilter.typeLabel + ':'"></span>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <template x-for="t in catalogDataTypeOptions" :key="t">
+                                    <button @click="selectCatalogDataType(t)"
+                                        :class="{
+                                            'bg-blue-600 text-white shadow-sm': selectedCatalogDataType === t,
+                                            'bg-slate-100 text-slate-700 hover:bg-slate-200': selectedCatalogDataType !== t
+                                        }"
+                                        class="px-3 sm:px-4 py-1.5 text-sm rounded-full transition-colors font-medium"
+                                        x-text="(content[lang].dataCatalog.regionFilter.typeLabels && content[lang].dataCatalog.regionFilter.typeLabels[t]) || t"></button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 按区域 -->
+                    <div class="mb-10">
+                        <div class="flex items-center gap-3 mb-3">
+                            <span class="font-semibold text-slate-700" x-text="content[lang].dataCatalog.regionFilter.regionLabel"></span>
+                            <span class="text-xs text-slate-400 hidden sm:inline" x-text="content[lang].dataCatalog.regionFilter.regionHint"></span>
+                            <button type="button" @click="resetCatalogFilters()" class="ml-auto text-xs text-blue-600 hover:underline" x-text="lang === 'zh' ? '重置筛选' : 'Reset'"></button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            <div class="md:col-span-3 relative rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/40 to-white">
+                                <div id="catalogRegionMap" class="w-full" style="height:420px;min-height:380px;"></div>
+                                <div x-show="catalogRegionMapErrorVisible" class="absolute inset-3 flex flex-col items-center justify-center text-slate-500 bg-white/85 rounded-xl border border-dashed border-slate-300" style="display:none;">
+                                    <i data-lucide="map-off" class="w-8 h-8 mb-2 text-slate-400"></i>
+                                    <p class="text-sm" x-text="content[lang].dataCatalog.regionFilter.mapErrorText"></p>
+                                </div>
+                            </div>
+                            <div class="md:col-span-2 rounded-2xl border border-blue-100 overflow-hidden bg-white">
+                                <div class="px-4 py-2 bg-gradient-to-r from-blue-50 to-blue-100 flex items-center justify-between">
+                                    <span class="text-sm font-semibold text-slate-700" x-text="content[lang].dataCatalog.regionFilter.tableTitle"></span>
+                                    <span class="text-xs text-slate-500"><span x-text="filteredCatalogRegionResources.length"></span> <span x-text="content[lang].dataCatalog.regionFilter.countSuffix"></span></span>
+                                </div>
+                                <div class="overflow-y-auto" style="max-height:380px">
+                                    <table class="w-full text-left text-sm">
+                                        <thead class="bg-slate-50 sticky top-0">
+                                            <tr>
+                                                <th class="px-3 py-2 font-medium text-slate-500" x-text="content[lang].dataCatalog.regionFilter.tableHeaderRegion"></th>
+                                                <th class="px-3 py-2 font-medium text-slate-500" x-text="content[lang].dataCatalog.regionFilter.tableHeaderTypes"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="r in filteredCatalogRegionResources" :key="r.region">
+                                                <tr @click="selectCatalogRegion(r.region)"
+                                                    :class="{ 'bg-blue-50': selectedCatalogRegion === r.region }"
+                                                    class="cursor-pointer border-t border-slate-100 hover:bg-blue-50/60 transition-colors">
+                                                    <td class="px-3 py-2 align-top">
+                                                        <div class="font-medium text-slate-800" x-text="r.displayName"></div>
+                                                        <div class="text-xs text-slate-400 mt-0.5" x-text="r.resources.join('、')"></div>
+                                                    </td>
+                                                    <td class="px-3 py-2 align-top">
+                                                        <div class="flex flex-wrap gap-1">
+                                                            <template x-for="t in r.types" :key="t">
+                                                                <span class="px-2 py-0.5 text-[11px] rounded-md border"
+                                                                    :style="'background:' + getCatalogTypeStyle(t).bg + ';color:' + getCatalogTypeStyle(t).text + ';border-color:' + getCatalogTypeStyle(t).border"
+                                                                    x-text="(content[lang].dataCatalog.regionFilter.typeLabels && content[lang].dataCatalog.regionFilter.typeLabels[t]) || t"></span>
+                                                            </template>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                    <div x-show="filteredCatalogRegionResources.length === 0" class="text-center py-12 text-slate-400">
+                                        <i data-lucide="search-x" class="w-8 h-8 mx-auto mb-2"></i>
+                                        <p class="text-sm" x-text="content[lang].dataCatalog.regionFilter.tableEmpty"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sorting and Results Count -->
+                    <div class="flex flex-col sm:flex-row items-center justify-between border-t border-b border-slate-200 py-3 mb-8 gap-4">
+                        <div class="flex items-center space-x-4 text-sm">
+                            <button class="font-semibold text-blue-600" x-text="content[lang].dataCatalog.sorting.comprehensive"></button>
+                            <div class="w-px h-4 bg-slate-300"></div>
+                            <button class="text-slate-500 hover:text-slate-800" x-text="content[lang].dataCatalog.sorting.views"></button>
+                        </div>
+                        <div class="text-sm text-slate-500">
+                            <span x-text="lang === 'zh' ? '共' : 'Total'"></span> <strong class="text-blue-600" x-text="filteredCatalogRegionResources.length"></strong> <span x-text="lang === 'zh' ? '个数据资源' : 'data resources'"></span>
+                        </div>
+                    </div>
+
+                    <!-- Resource Cards (region-based, double column) -->
+                    <div class="grid md:grid-cols-2 gap-5">
+                        <template x-for="r in filteredCatalogRegionResources" :key="r.region">
+                            <div @click="selectCatalogRegion(r.region)"
+                                :class="{ 'ring-2 ring-blue-300 border-blue-200': selectedCatalogRegion === r.region }"
+                                class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
+                                <!-- Title row + region badge top-right -->
+                                <div class="flex items-start justify-between gap-3">
+                                    <h3 class="text-lg font-bold text-slate-800 leading-snug" x-text="r.displayName + ' · ' + (r.resources[0] || '')"></h3>
+                                    <span class="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded shrink-0" x-text="r.region"></span>
+                                </div>
+                                <!-- Data Type Tags -->
+                                <div class="flex flex-wrap gap-2 mt-3">
+                                    <template x-for="t in r.types" :key="t">
+                                        <span class="px-2 py-0.5 text-[11px] rounded-md border font-medium"
+                                            :style="'background:' + getCatalogTypeStyle(t).bg + ';color:' + getCatalogTypeStyle(t).text + ';border-color:' + getCatalogTypeStyle(t).border"
+                                            x-text="(content[lang].dataCatalog.regionFilter.typeLabels && content[lang].dataCatalog.regionFilter.typeLabels[t]) || t"></span>
+                                    </template>
+                                </div>
+                                <!-- Description -->
+                                <p class="text-sm text-slate-600 mt-3"
+                                    x-text="lang === 'zh'
+                                        ? ('连接 ' + r.displayName + ' 可信医疗数据节点，覆盖 ' + r.types.length + ' 类数据资源。')
+                                        : ('Connecting ' + r.displayName + ' trusted medical data nodes, covering ' + r.types.length + ' data type(s).')"></p>
+                                <!-- Small info area (覆盖范围 / 数据类型 / 资源名称) -->
+                                <div class="mt-4 space-y-1.5 text-sm border-t border-slate-100 pt-3">
+                                    <div>
+                                        <span class="text-slate-500" x-text="(lang === 'zh' ? '覆盖范围：' : 'Scale: ')"></span>
+                                        <strong class="text-slate-700" x-text="r.displayName"></strong>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-500" x-text="(lang === 'zh' ? '数据类型：' : 'Data Types: ')"></span>
+                                        <strong class="text-slate-700" x-text="r.types.map(t => ((content[lang].dataCatalog.regionFilter.typeLabels && content[lang].dataCatalog.regionFilter.typeLabels[t]) || t)).join('、')"></strong>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-500" x-text="(lang === 'zh' ? '资源名称：' : 'Resources: ')"></span>
+                                        <strong class="text-slate-700" x-text="r.resources.join('、')"></strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Empty state -->
+                        <div x-show="filteredCatalogRegionResources.length === 0" class="md:col-span-2 text-center py-12">
+                            <i data-lucide="search-x" class="w-16 h-16 text-slate-300 mx-auto"></i>
+                            <h3 class="mt-4 text-xl font-semibold text-slate-700" x-text="lang === 'zh' ? '未找到匹配的数据资源' : 'No Matching Data Resources Found'"></h3>
+                            <p class="mt-2 text-slate-500" x-text="lang === 'zh' ? '请尝试调整您的搜索词或筛选条件。' : 'Please try adjusting your search term or filters.'"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Solutions Page -->
+        <div x-show="activePage === 'solutions'" x-cloak x-data="{ solutionsView: 'scenarioPoc' }" class="min-h-screen bg-gradient-to-b from-sky-50/90 via-white to-sky-100/50">
+            <div class="container mx-auto px-6 py-12">
+                <div class="text-center mb-10">
+                    <h1 class="section-title" x-text="content[lang].solutions.title"></h1>
+                    <p class="section-subtitle" x-text="content[lang].solutions.subtitle"></p>
+                </div>
+
+                <div class="flex justify-center flex-wrap gap-3 mb-10">
+                    <button type="button" @click="solutionsView = 'scenarioPoc'; $nextTick(() => lucide.createIcons())" :class="{ 'active': solutionsView === 'scenarioPoc' }" class="solution-tab-button">
+                        <i data-lucide="layers"></i>
+                        <span x-text="content[lang].solutions.nav.scenarioPoc"></span>
+                    </button>
+                    <button type="button" @click="solutionsView = 'demos'; $nextTick(() => lucide.createIcons())" :class="{ 'active': solutionsView === 'demos' }" class="solution-tab-button">
+                        <i data-lucide="layout-grid"></i>
+                        <span x-text="content[lang].solutions.nav.demos"></span>
+                    </button>
+                </div>
+
+                <div class="max-w-5xl mx-auto" x-show="solutionsView === 'scenarioPoc'" x-cloak>
+                    <div class="bg-white/95 backdrop-blur-sm rounded-2xl border border-blue-100 shadow-sm p-8 md:p-10 space-y-8 text-slate-700">
+                        <p class="text-base leading-relaxed font-medium text-slate-800 border-l-4 border-blue-500 pl-4 bg-sky-50/30 py-3 rounded-r-lg" x-text="content[lang].solutions.scenarioPoc.lead"></p>
+                        <section class="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-600 to-blue-700 text-white p-6 shadow-sm space-y-3">
+                            <h3 class="text-lg font-bold flex items-center gap-2">
+                                <i data-lucide="target" class="w-5 h-5"></i>
+                                <span x-text="content[lang].solutions.scenarioPoc.missionHighlight.title"></span>
+                            </h3>
+                            <template x-for="(mp, mi) in content[lang].solutions.scenarioPoc.missionHighlight.paragraphs" :key="mi">
+                                <p class="text-sm leading-relaxed text-blue-50" x-text="mp"></p>
+                            </template>
+                        </section>
+                        <section class="space-y-3">
+                            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                <i data-lucide="shield-check" class="w-5 h-5 text-blue-600"></i>
+                                <span x-text="content[lang].solutions.scenarioPoc.tdsPain.title"></span>
+                            </h3>
+                            <template x-for="(tp, ti) in content[lang].solutions.scenarioPoc.tdsPain.paragraphs" :key="ti">
+                                <p class="text-sm leading-relaxed" x-text="tp"></p>
+                            </template>
+                        </section>
+                        <template x-for="(sec, si) in content[lang].solutions.scenarioPoc.sections" :key="si">
+                            <section class="space-y-3">
+                                <h3 class="text-lg font-bold text-slate-900" x-text="sec.heading"></h3>
+                                <template x-for="(para, pi) in sec.paragraphs" :key="pi">
+                                    <p class="text-sm leading-relaxed" x-text="para"></p>
+                                </template>
+                            </section>
+                        </template>
+                        <section class="space-y-4 pt-4 border-t border-blue-100">
+                            <h3 class="text-lg font-bold text-slate-900" x-text="content[lang].solutions.scenarioPoc.participationHeading"></h3>
+                            <p class="text-sm text-slate-600" x-text="content[lang].solutions.scenarioPoc.participationIntro"></p>
+                            <ul class="grid gap-3 sm:grid-cols-1 md:grid-cols-2">
+                                <template x-for="(item, ii) in content[lang].solutions.scenarioPoc.participationItems" :key="ii">
+                                    <li class="rounded-xl bg-sky-50/60 border border-blue-100/80 p-4">
+                                        <p class="font-semibold text-blue-900 text-sm" x-text="item.title"></p>
+                                        <p class="text-sm text-slate-600 mt-1 leading-relaxed" x-text="item.text"></p>
+                                    </li>
+                                </template>
+                            </ul>
+                        </section>
+                        <section class="space-y-4 pt-6 border-t border-blue-200">
+                            <h3 class="text-lg font-bold text-slate-900" x-text="content[lang].solutions.scenarioPoc.flowPathTitle"></h3>
+                            <p class="text-xs text-slate-500" x-text="content[lang].solutions.scenarioPoc.flowPathCaption"></p>
+                            <p class="text-sm leading-relaxed text-slate-700 bg-blue-50/50 border border-blue-100 rounded-lg p-4" x-text="content[lang].solutions.scenarioPoc.flowPathObjective"></p>
+                            <div class="bg-sky-50/40 rounded-xl p-6 border border-blue-100">
+                                <div class="flex flex-col items-center">
+                                    <template x-for="(step, idx) in content[lang].solutions.scenarioPoc.flowSteps" :key="idx">
+                                        <div class="flex flex-col items-center w-full max-w-xl">
+                                            <div class="bg-white border-2 border-blue-100 rounded-lg px-4 py-3 w-full text-center text-sm font-medium text-slate-800 shadow-sm" x-text="step"></div>
+                                            <div class="h-5 flex items-center justify-center py-1" x-show="idx < content[lang].solutions.scenarioPoc.flowSteps.length - 1">
+                                                <i data-lucide="arrow-down" class="w-5 h-5 text-blue-300"></i>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+
+                <div class="max-w-5xl mx-auto" x-show="solutionsView === 'demos'" x-cloak>
+                    <p class="text-center text-slate-600 text-sm mb-8 max-w-3xl mx-auto leading-relaxed" x-text="content[lang].solutions.demos.relationText"></p>
+                    <template x-for="demo in content[lang].solutions.demos.cases" :key="demo.demoEntry.routeKey">
+                        <div class="bg-white rounded-2xl shadow-sm border border-blue-100 overflow-hidden mb-8">
+                            <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-5 text-white">
+                                <p class="text-sm font-semibold text-blue-100 tracking-wide" x-text="demo.tag"></p>
+                                <h3 class="text-2xl md:text-3xl font-bold mt-1 leading-snug" x-text="demo.title"></h3>
+                                <p class="text-blue-100 mt-2 text-lg font-medium" x-text="demo.subtitle"></p>
+                            </div>
+                            <div class="p-6 md:p-10 space-y-6">
+                                <div>
+                                    <h4 class="text-sm font-bold text-blue-900 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                                        <span x-text="demo.backgroundTitle"></span>
+                                    </h4>
+                                    <ul class="space-y-2">
+                                        <template x-for="(bp, bi) in demo.backgroundPoints" :key="bi">
+                                            <li class="flex items-start gap-2 text-slate-600 text-sm leading-relaxed">
+                                                <span class="text-blue-500 mt-1.5 flex-shrink-0">·</span>
+                                                <span x-text="bp"></span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-blue-900 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                        <i data-lucide="star" class="w-4 h-4"></i>
+                                        <span x-text="demo.highlightsTitle"></span>
+                                    </h4>
+                                    <div class="flex flex-wrap gap-2">
+                                        <template x-for="(pill, pi) in demo.highlightPills" :key="pi">
+                                            <span class="inline-flex items-center rounded-full bg-sky-100 text-blue-900 text-xs font-semibold px-3 py-1.5 border border-blue-200/80" x-text="pill"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap gap-3 items-center pt-2 border-t border-slate-100">
+                                    <a x-show="demo.demoEntry.enabled" :href="demo.demoEntry.href" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 shadow-sm" x-text="demo.demoEntry.buttonLabel"></a>
+                                    <button type="button" x-show="!demo.demoEntry.enabled" disabled class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-slate-100 text-slate-500 font-semibold text-sm cursor-not-allowed border border-slate-200">
+                                        <i data-lucide="monitor-play" class="w-4 h-4"></i>
+                                        <span x-text="demo.demoEntry.disabledLabel"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Partners Page -->
+        <div x-show="activePage === 'partners'" x-cloak x-data="{ partnerTab: 'providers' }" class="container mx-auto px-6 py-12">
+              <div class="text-center mb-12">
+                <h1 class="section-title" x-text="content[lang].partners.title"></h1>
+                <p class="section-subtitle" x-text="content[lang].partners.subtitle"></p>
+            </div>
+            <div class="flex justify-center flex-wrap gap-4 mb-12">
+                <button @click="partnerTab = 'providers'" :class="{ 'active': partnerTab === 'providers' }" class="solution-tab-button"><i data-lucide="hospital"></i><span x-text="content[lang].partners.tabs.providers"></span></button>
+                <button @click="partnerTab = 'services'" :class="{ 'active': partnerTab === 'services' }" class="solution-tab-button"><i data-lucide="flask-conical"></i><span x-text="content[lang].partners.tabs.services"></span></button>
+                <button @click="partnerTab = 'users'" :class="{ 'active': partnerTab === 'users' }" class="solution-tab-button"><i data-lucide="pills"></i><span x-text="content[lang].partners.tabs.users"></span></button>
+                <button @click="partnerTab = 'regulators'" :class="{ 'active': partnerTab === 'regulators' }" class="solution-tab-button"><i data-lucide="shield"></i><span x-text="content[lang].partners.tabs.regulators"></span></button>
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-lg p-8 md:p-12">
+                <!-- Data Providers -->
+                <div x-show="partnerTab === 'providers'" x-cloak>
+                    <h3 class="text-2xl font-bold text-center text-slate-800 mb-12" x-text="content[lang].partners.providers.title"></h3>
+                    <div class="space-y-10">
+                        <template x-for="category in content[lang].partners.providers.categories" :key="category.name">
+                            <div>
+                                <h4 class="text-lg font-semibold text-slate-700 mb-4 border-b pb-2" x-text="category.name"></h4>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-8 gap-y-4 text-slate-600">
+                                    <template x-for="partner in category.partners" :key="partner">
+                                        <span x-text="partner"></span>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <!-- Data Services -->
+                <div x-show="partnerTab === 'services'" x-cloak>
+                    <h3 class="text-2xl font-bold text-center text-slate-800 mb-12" x-text="content[lang].partners.services.title"></h3>
+                    <div class="space-y-10">
+                        <template x-for="category in content[lang].partners.services.categories" :key="category.name">
+                            <div>
+                                <h4 class="text-lg font-semibold text-slate-700 mb-4 border-b pb-2" x-text="category.name"></h4>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-8 gap-y-4 text-slate-600">
+                                    <template x-for="partner in category.partners" :key="partner">
+                                        <span x-text="partner"></span>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <!-- Data Users -->
+                <div x-show="partnerTab === 'users'" x-cloak>
+                    <h3 class="text-2xl font-bold text-center text-slate-800 mb-8" x-text="content[lang].partners.users.title"></h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8 items-center">
+                        <img src="https://placehold.co/150x60/f1f5f9/475569?text=Pfizer" alt="Pfizer Logo" class="partner-logo mx-auto">
+                        <img src="https://placehold.co/150x60/f1f5f9/475569?text=Bayer" alt="Bayer Logo" class="partner-logo mx-auto">
+                        <img src="https://placehold.co/150x60/f1f5f9/475569?text=BeiGene" alt="BeiGene Logo" class="partner-logo mx-auto">
+                        <img src="https://placehold.co/150x60/f1f5f9/475569?text=Alcon" alt="Alcon Logo" class="partner-logo mx-auto">
+                        <img src="https://placehold.co/150x60/f1f5f9/475569?text=Medtronic" alt="Medtronic Logo" class="partner-logo mx-auto">
+                        <img src="https://placehold.co/150x60/f1f5f9/475569?text=Novartis" alt="Novartis Logo" class="partner-logo mx-auto">
+                        <img src="https://placehold.co/150x60/f1f5f9/475569?text=Sanofi" alt="Sanofi Logo" class="partner-logo mx-auto">
+                        <img src="https://placehold.co/150x60/f1f5f9/475569?text=AbbVie" alt="AbbVie Logo" class="partner-logo mx-auto">
+                        <img src="https://placehold.co/150x60/f1f5f9/475569?text=BMS" alt="Bristol Myers Squibb Logo" class="partner-logo mx-auto">
+                        <img src="https://placehold.co/150x60/f1f5f9/475569?text=Stryker" alt="Stryker Logo" class="partner-logo mx-auto">
+                        <img src="https://placehold.co/150x60/f1f5f9/475569?text=S+N" alt="Smith+Nephew Logo" class="partner-logo mx-auto">
+                        <div class="flex items-center justify-center h-full">
+                            <span class="text-slate-500 font-semibold" x-text="content[lang].partners.users.more"></span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Data Regulators -->
+                <div x-show="partnerTab === 'regulators'" x-cloak>
+                    <h3 class="text-2xl font-bold text-center text-slate-800 mb-8" x-text="content[lang].partners.regulators.title"></h3>
+                      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 items-center text-center">
+                        <div class="p-4"><span class="text-slate-700 font-medium">国家药品监督管理局 (NMPA)</span></div>
+                        <div class="p-4"><span class="text-slate-700 font-medium">国家医疗保障局 (NHSA)</span></div>
+                        <div class="p-4"><span class="text-slate-700 font-medium">海南省卫生健康委员会</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CTA -->
+            <section class="mt-16 text-center">
+                <h2 class="text-3xl font-bold text-slate-800" x-text="content[lang].partners.cta.title"></h2>
+                <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto" x-text="content[lang].partners.cta.subtitle"></p>
+                <div class="mt-8">
+                    <button class="bg-blue-600 text-white font-semibold px-8 py-3 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105" x-text="content[lang].partners.cta.button"></button>
+                </div>
+            </section>
+        </div>
+
+        <!-- About Us Page -->
+        <div x-show="activePage === 'about'" x-cloak class="container mx-auto px-6 py-12">
+              <div class="text-center mb-16">
+                <h1 class="section-title" x-text="content[lang].about.title"></h1>
+                <p class="section-subtitle" x-text="content[lang].about.subtitle"></p>
+            </div>
+            
+            <!-- Mission Section -->
+            <section class="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-16">
+                <div class="grid md:grid-cols-2 gap-12 items-center">
+                    <div>
+                        <h2 class="text-3xl font-bold text-slate-800" x-text="content[lang].about.mission.title"></h2>
+                        <p class="mt-4 text-slate-600" x-text="content[lang].about.mission.p1"></p>
+                        <p class="mt-4 text-slate-600" x-text="content[lang].about.mission.p2"></p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6 text-center">
+                        <div class="bg-blue-50 p-6 rounded-xl">
+                            <span class="text-4xl font-bold text-blue-600" x-text="content[lang].about.stats.stat1.value"></span>
+                            <p class="mt-2 text-slate-700 font-medium" x-text="content[lang].about.stats.stat1.label"></p>
+                        </div>
+                        <div class="bg-blue-50 p-6 rounded-xl">
+                            <span class="text-4xl font-bold text-blue-600" x-text="content[lang].about.stats.stat2.value"></span>
+                            <p class="mt-2 text-slate-700 font-medium" x-text="content[lang].about.stats.stat2.label"></p>
+                        </div>
+                        <div class="bg-blue-50 p-6 rounded-xl">
+                            <span class="text-4xl font-bold text-blue-600" x-text="content[lang].about.stats.stat3.value"></span>
+                            <p class="mt-2 text-slate-700 font-medium" x-text="content[lang].about.stats.stat3.label"></p>
+                        </div>
+                          <div class="bg-blue-50 p-6 rounded-xl">
+                            <span class="text-4xl font-bold text-blue-600" x-text="content[lang].about.stats.stat4.value"></span>
+                            <p class="mt-2 text-slate-700 font-medium" x-text="content[lang].about.stats.stat4.label"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Timeline Section -->
+            <section class="mb-16">
+                  <h2 class="text-3xl font-bold text-slate-800 text-center mb-12" x-text="content[lang].about.timeline.title"></h2>
+                  <div class="max-w-3xl mx-auto">
+                    <template x-for="item in content[lang].about.timeline.items" :key="item.title">
+                        <div class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <div class="text-slate-500 text-sm mb-1" x-text="item.year"></div>
+                            <h3 class="text-lg font-semibold text-slate-800" x-text="item.title"></h3>
+                            <p class="text-slate-600" x-text="item.description"></p>
+                        </div>
+                    </template>
+                  </div>
+            </section>
+
+              <!-- Governance Section -->
+            <section class="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-16">
+                <h2 class="text-3xl font-bold text-slate-800 text-center mb-12" x-text="content[lang].about.governance.title"></h2>
+                <div class="grid md:grid-cols-3 gap-8 text-center">
+                    <div class="p-6">
+                        <div class="flex items-center justify-center h-16 w-16 rounded-full bg-slate-100 text-slate-600 mx-auto mb-4">
+                            <i data-lucide="shield" class="w-8 h-8"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-slate-800 mb-2" x-text="content[lang].about.governance.cards[0].title"></h3>
+                        <p class="text-slate-600" x-text="content[lang].about.governance.cards[0].description"></p>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-center h-16 w-16 rounded-full bg-slate-100 text-slate-600 mx-auto mb-4">
+                            <i data-lucide="users" class="w-8 h-8"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-slate-800 mb-2" x-text="content[lang].about.governance.cards[1].title"></h3>
+                        <p class="text-slate-600" x-text="content[lang].about.governance.cards[1].description"></p>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-center h-16 w-16 rounded-full bg-slate-100 text-slate-600 mx-auto mb-4">
+                            <i data-lucide="factory" class="w-8 h-8"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-slate-800 mb-2" x-text="content[lang].about.governance.cards[2].title"></h3>
+                        <p class="text-slate-600" x-text="content[lang].about.governance.cards[2].description"></p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- Dataset Detail Modal -->
+    <div x-show="isModalOpen" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4" x-cloak>
+        <div @click.away="closeDatasetModal()" class="bg-white rounded-2xl shadow-xl w-11/12 max-w-3xl max-h-[90vh] flex flex-col" x-show="isModalOpen" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95">
+            <!-- Modal Header -->
+            <div class="flex items-start justify-between p-6 border-b">
+                <div class="flex items-center gap-4">
+                     <div class="bg-blue-100 text-blue-600 p-3 rounded-lg flex-shrink-0">
+                        <i :data-lucide="selectedDatasetKey ? content[lang].dataCatalog.cards[selectedDatasetKey].icon : 'database'" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800" x-text="selectedDatasetKey ? content[lang].dataCatalog.cards[selectedDatasetKey].title : ''"></h2>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                             <template x-if="selectedDatasetKey">
+                                <template x-for="tag in content[lang].dataCatalog.cards[selectedDatasetKey].tags" :key="tag">
+                                    <span class="px-2 py-0.5 text-xs font-medium text-blue-800 bg-blue-100 rounded" x-text="tag"></span>
+                                </template>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <button @click="closeDatasetModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto">
+                <h3 class="font-semibold text-slate-700 text-lg mb-2" x-text="lang === 'zh' ? '数据集描述' : 'Dataset Description'"></h3>
+                <p class="text-slate-600" x-text="selectedDatasetKey ? content[lang].dataCatalog.cards[selectedDatasetKey].description : ''"></p>
+
+                <h3 class="font-semibold text-slate-700 text-lg mt-6 mb-4" x-text="lang === 'zh' ? '详细信息' : 'Details'"></h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border rounded-lg p-4 bg-slate-50">
+                    <div>
+                        <p class="text-sm text-slate-500" x-text="content[lang].dataCatalog.cardFields.provider"></p>
+                        <p class="font-medium text-slate-800" x-text="selectedDatasetKey ? content[lang].dataCatalog.cards[selectedDatasetKey].provider : ''"></p>
+                    </div>
+                     <div>
+                        <p class="text-sm text-slate-500" x-text="content[lang].dataCatalog.cardFields.size"></p>
+                        <p class="font-medium text-slate-800" x-text="selectedDatasetKey ? content[lang].dataCatalog.cards[selectedDatasetKey].size : ''"></p>
+                    </div>
+                     <div>
+                        <p class="text-sm text-slate-500" x-text="content[lang].dataCatalog.cardFields.scale"></p>
+                        <p class="font-medium text-slate-800" x-text="selectedDatasetKey ? content[lang].dataCatalog.cards[selectedDatasetKey].scale : ''"></p>
+                    </div>
+                     <div>
+                        <p class="text-sm text-slate-500" x-text="content[lang].dataCatalog.cardFields.releaseDate"></p>
+                        <p class="font-medium text-slate-800" x-text="selectedDatasetKey ? content[lang].dataCatalog.cards[selectedDatasetKey].releaseDate : ''"></p>
+                    </div>
+                     <div>
+                        <p class="text-sm text-slate-500" x-text="content[lang].dataCatalog.cardFields.expiryDate"></p>
+                        <p class="font-medium text-slate-800" x-text="selectedDatasetKey ? content[lang].dataCatalog.cards[selectedDatasetKey].expiryDate : ''"></p>
+                    </div>
+                </div>
+                 <!-- Sample Data Preview Section -->
+                 <h3 class="font-semibold text-slate-700 text-lg mt-6 mb-2" x-text="lang === 'zh' ? '数据样本预览' : 'Sample Data Preview'"></h3>
+                 <p class="text-sm text-slate-500 mb-4" x-text="lang === 'zh' ? '以下为脱敏后的样本数据，仅用于展示数据结构和字段类型。' : 'The following is anonymized sample data for demonstrating data structure and field types only.'"></p>
+                 <div class="overflow-x-auto border rounded-lg">
+                     <table class="min-w-full text-sm text-left">
+                         <thead class="bg-slate-100 text-slate-600">
+                             <tr>
+                                 <th class="p-3" x-text="lang === 'zh' ? '患者ID' : 'Patient ID'"></th>
+                                 <th class="p-3" x-text="lang === 'zh' ? '检测项目' : 'Test Item'"></th>
+                                 <th class="p-3" x-text="lang === 'zh' ? '检测结果' : 'Result'"></th>
+                                 <th class="p-3" x-text="lang === 'zh' ? '单位' : 'Unit'"></th>
+                                 <th class="p-3" x-text="lang === 'zh' ? '参考范围' : 'Reference Range'"></th>
+                                 <th class="p-3" x-text="lang === 'zh' ? '检测日期' : 'Test Date'"></th>
+                             </tr>
+                         </thead>
+                         <tbody class="bg-white divide-y divide-slate-200">
+                            <tr><td class="p-3 text-slate-700">..._001</td><td class="p-3 text-slate-700">血常规</td><td class="p-3 text-slate-700 font-medium">12.5</td><td class="p-3 text-slate-700">g/dL</td><td class="p-3 text-slate-500">11.0-15.0</td><td class="p-3 text-slate-500">2024-08-15</td></tr>
+                            <tr class="bg-slate-50/70"><td class="p-3 text-slate-700">..._001</td><td class="p-3 text-slate-700">AQP4-IgG</td><td class="p-3 text-red-600 font-medium">阳性 (+)</td><td class="p-3 text-slate-700">N/A</td><td class="p-3 text-slate-500">阴性</td><td class="p-3 text-slate-500">2024-08-15</td></tr>
+                            <tr><td class="p-3 text-slate-700">..._002</td><td class="p-3 text-slate-700">血常规</td><td class="p-3 text-red-600 font-medium">10.8</td><td class="p-3 text-slate-700">g/dL</td><td class="p-3 text-slate-500">11.0-15.0</td><td class="p-3 text-slate-500">2024-07-22</td></tr>
+                         </tbody>
+                     </table>
+                 </div>
+            </div>
+            <!-- Modal Footer -->
+            <div class="p-6 bg-slate-50 border-t rounded-b-2xl flex justify-end gap-4 flex-shrink-0">
+                 <button @click="closeDatasetModal()" class="px-5 py-2 text-slate-700 bg-white border rounded-lg hover:bg-slate-100" x-text="lang === 'zh' ? '关闭' : 'Close'"></button>
+                 <button class="px-5 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold" x-text="lang === 'zh' ? '申请使用' : 'Apply for Access'"></button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- AI Assistant Floating Action Button and Chat Window -->
+    <div class="fixed bottom-6 right-6 z-[100]">
+        <!-- Chat Window -->
+        <div x-show="aiAssistantOpen" @click.away="aiAssistantOpen = false" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform translate-y-4" x-transition:enter-end="opacity-100 transform translate-y-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 transform translate-y-0" x-transition:leave-end="opacity-0 transform translate-y-4" class="absolute bottom-20 right-0 w-80 md:w-96 bg-white rounded-2xl shadow-2xl flex flex-col h-[60vh]" x-cloak>
+            <!-- Header -->
+            <div class="flex items-center justify-between p-4 border-b bg-slate-50 rounded-t-2xl flex-shrink-0">
+                <h3 class="text-lg font-bold text-slate-800">AI 助手</h3>
+                <button @click="aiAssistantOpen = false" class="text-slate-500 hover:text-slate-800">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Messages -->
+            <div x-ref="chatbox" class="flex-1 p-4 overflow-y-auto space-y-4">
+                <template x-for="(message, index) in messages" :key="index">
+                    <div class="flex" :class="message.role === 'user' ? 'justify-end' : 'justify-start'">
+                        <div class="max-w-xs md:max-w-sm px-4 py-2 rounded-xl" :class="message.role === 'user' ? 'chat-bubble-user rounded-br-none' : 'chat-bubble-bot rounded-bl-none'">
+                            <p class="text-sm" x-html="message.text"></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Input -->
+            <div class="p-4 border-t bg-white rounded-b-2xl flex-shrink-0">
+                <form @submit.prevent="sendMessage()" class="flex items-center space-x-2">
+                    <input x-model="userInput" type="text" placeholder="请输入您的问题..." class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
+                    <button type="submit" class="bg-blue-600 text-white rounded-lg p-2 hover:bg-blue-700 disabled:bg-blue-300" :disabled="!userInput.trim()">
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Floating Button -->
+        <button @click="aiAssistantOpen = !aiAssistantOpen" class="bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="12" width="8" height="8" rx="2"/><path d="M8 12v-2a2 2 0 1 1 4 0v2"/><path d="m12 18-2-2 2-2"/><path d="m18 12 2-2-2-2"/></svg>
+        </button>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800 text-slate-300">
+        <div class="container mx-auto px-6 py-12">
+            <div class="grid md:grid-cols-4 gap-8">
+                <div>
+                    <h3 class="font-bold text-white text-lg mb-4" x-text="content[lang].footer.title"></h3>
+                    <p class="text-sm" x-text="content[lang].footer.subtitle"></p>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-white mb-4" x-text="content[lang].footer.links.quick.title"></h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#" @click.prevent="activePage = 'home'" class="hover:text-white" x-text="content[lang].footer.links.quick.home"></a></li>
+                        <li><a href="#" @click.prevent="activePage = 'data-catalog'" class="hover:text-white" x-text="content[lang].footer.links.quick.dataCatalog"></a></li>
+                        <li><a href="#" @click.prevent="activePage = 'solutions'" class="hover:text-white" x-text="content[lang].footer.links.quick.solutions"></a></li>
+                        <li><a href="#" @click.prevent="activePage = 'partners'" class="hover:text-white" x-text="content[lang].footer.links.quick.partners"></a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-white mb-4" x-text="content[lang].footer.links.legal.title"></h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#" class="hover:text-white" x-text="content[lang].footer.links.legal.privacy"></a></li>
+                        <li><a href="#" class="hover:text-white" x-text="content[lang].footer.links.legal.terms"></a></li>
+                        <li><a href="#" class="hover:text-white" x-text="content[lang].footer.links.legal.security"></a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-white mb-4" x-text="content[lang].footer.contact.title"></h4>
+                    <p class="text-sm" x-text="content[lang].footer.contact.address"></p>
+                    <p class="text-sm mt-2" x-text="content[lang].footer.contact.email"></p>
+                </div>
+            </div>
+            <div class="mt-10 border-t border-slate-700 pt-6 text-center text-sm text-slate-400">
+                <p>&copy; <span id="copyright-year"></span> <span x-text="content[lang].footer.copyright"></span></p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // === China map loader (multi-source fallback for the data-catalog page) ===
+        const CATALOG_PROVINCE_NAME_MAP = {
+            '北京市': '北京', '天津市': '天津', '上海市': '上海', '重庆市': '重庆',
+            '河北省': '河北', '山西省': '山西', '辽宁省': '辽宁', '吉林省': '吉林',
+            '黑龙江省': '黑龙江', '江苏省': '江苏', '浙江省': '浙江', '安徽省': '安徽',
+            '福建省': '福建', '江西省': '江西', '山东省': '山东', '河南省': '河南',
+            '湖北省': '湖北', '湖南省': '湖南', '广东省': '广东', '海南省': '海南',
+            '四川省': '四川', '贵州省': '贵州', '云南省': '云南', '陕西省': '陕西',
+            '甘肃省': '甘肃', '青海省': '青海', '台湾省': '台湾',
+            '内蒙古自治区': '内蒙古', '广西壮族自治区': '广西', '西藏自治区': '西藏',
+            '宁夏回族自治区': '宁夏', '新疆维吾尔自治区': '新疆',
+            '香港特别行政区': '香港', '澳门特别行政区': '澳门'
+        };
+
+        function _normalizeChinaGeoJson(geoJson) {
+            if (!geoJson || !geoJson.features) return geoJson;
+            geoJson.features.forEach(function(f) {
+                if (f.properties && f.properties.name && CATALOG_PROVINCE_NAME_MAP[f.properties.name]) {
+                    f.properties.name = CATALOG_PROVINCE_NAME_MAP[f.properties.name];
+                }
+            });
+            return geoJson;
+        }
+
+        function _loadCatalogScript(src, timeout) {
+            timeout = timeout || 8000;
+            return new Promise(function(resolve, reject) {
+                const sc = document.createElement('script');
+                let done = false;
+                const tm = setTimeout(function() { if (done) return; done = true; sc.remove(); reject(new Error('timeout')); }, timeout);
+                sc.onload = function() { if (done) return; done = true; clearTimeout(tm); resolve(); };
+                sc.onerror = function() { if (done) return; done = true; clearTimeout(tm); reject(new Error('error')); };
+                sc.src = src;
+                document.head.appendChild(sc);
+            });
+        }
+
+        async function loadChinaMapForCatalog() {
+            if (typeof echarts === 'undefined') return false;
+            if (echarts.getMap && echarts.getMap('china')) return true;
+            const scriptSources = [
+                'https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/js/china.js',
+                'https://fastly.jsdelivr.net/npm/echarts@4.9.0/map/js/china.js',
+                'https://unpkg.com/echarts@4.9.0/map/js/china.js'
+            ];
+            for (let i = 0; i < scriptSources.length; i++) {
+                try {
+                    await _loadCatalogScript(scriptSources[i]);
+                    if (echarts.getMap && echarts.getMap('china')) return true;
+                } catch (e) { /* try next */ }
+            }
+            const jsonSources = [
+                'https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json',
+                'https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/json/china.json',
+                'https://unpkg.com/echarts@4.9.0/map/json/china.json'
+            ];
+            for (let i = 0; i < jsonSources.length; i++) {
+                try {
+                    const r = await fetch(jsonSources[i]);
+                    if (!r.ok) continue;
+                    const j = await r.json();
+                    if (!j || !j.features) continue;
+                    _normalizeChinaGeoJson(j);
+                    echarts.registerMap('china', j);
+                    return true;
+                } catch (e) { /* try next */ }
+            }
+            return false;
+        }
+
+        // Main Alpine.js data object for the application state and content
+        function appData() {
+            return {
+                lang: 'zh', // Default language
+                activePage: 'data-catalog', // Default page for showcasing new features
+                aiAssistantOpen: false,
+                userInput: '',
+                messages: [], // AI chat messages
+                isModalOpen: false,
+                selectedDatasetKey: null,
+                
+                // Data Catalog State (legacy filters retained for backward compat; not surfaced in new UI)
+                activeDomain: '全部',
+                activeApp: '全部',
+                activeDisease: '全部',
+                searchQuery: '',
+
+                // Data Catalog: Region Map filter state (catalog-prefixed to avoid name conflicts)
+                selectedCatalogDataType: '全部',
+                selectedCatalogRegion: null,
+                catalogRegionMapAvailable: false,
+                catalogRegionMapErrorVisible: false,
+                _catalogMapInited: false,
+                catalogRegionMapChart: null,
+
+                catalogDataTypeOptions: ['全部', '医疗机构数据', '卫健数据', '医保数据', '药监数据', '疾控数据'],
+
+                catalogTypeStyles: {
+                    '医疗机构数据': { bg: '#ede9fe', text: '#6d28d9', border: '#c4b5fd' },
+                    '卫健数据':     { bg: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' },
+                    '医保数据':     { bg: '#dcfce7', text: '#166534', border: '#86efac' },
+                    '药监数据':     { bg: '#fef3c7', text: '#b45309', border: '#fcd34d' },
+                    '疾控数据':     { bg: '#fee2e2', text: '#b91c1c', border: '#fca5a5' }
+                },
+
+                catalogRegionResources: [
+                    { region: '北京', displayName: '北京市', province: '北京', types: ['卫健数据'], resources: ['全民健康信息平台数据'], coordinate: [116.40, 39.90] },
+                    { region: '深圳', displayName: '深圳市', province: '广东', types: ['医疗机构数据'], resources: ['北京大学深圳医院'], coordinate: [114.05, 22.55] },
+                    { region: '重庆', displayName: '重庆市', province: '重庆', types: ['卫健数据'], resources: ['全民健康信息平台数据'], coordinate: [106.55, 29.56] },
+                    { region: '江苏', displayName: '江苏省', province: '江苏', types: ['卫健数据'], resources: ['国家健康大数据（东部）中心'], coordinate: [118.78, 32.04] },
+                    { region: '青岛', displayName: '青岛市', province: '山东', types: ['卫健数据'], resources: ['全民健康信息平台数据'], coordinate: [120.38, 36.07] },
+                    { region: '福建', displayName: '福建省', province: '福建', types: ['医保数据', '卫健数据', '药监数据'], resources: ['三医数据资源'], coordinate: [119.30, 26.08] },
+                    { region: '海南', displayName: '海南省', province: '海南', types: ['卫健数据', '医保数据', '药监数据'], resources: ['三医数据资源'], coordinate: [110.35, 20.02] },
+                    { region: '上海', displayName: '上海市', province: '上海', types: ['卫健数据', '医疗机构数据'], resources: ['上海市卫生健康委', '上海申康临床研究队列'], coordinate: [121.47, 31.23] },
+                    { region: '宜昌', displayName: '宜昌市', province: '湖北', types: ['卫健数据'], resources: ['全民健康信息平台数据'], coordinate: [111.29, 30.69] },
+                    { region: '天津', displayName: '天津市', province: '天津', types: ['卫健数据'], resources: ['全民健康信息平台数据'], coordinate: [117.20, 39.13] },
+                    { region: '厦门', displayName: '厦门市', province: '福建', types: ['卫健数据'], resources: ['全民健康信息平台数据'], coordinate: [118.10, 24.46] },
+                    { region: '南京', displayName: '南京市', province: '江苏', types: ['卫健数据'], resources: ['全民健康信息平台数据'], coordinate: [118.78, 32.04] },
+                    { region: '温州', displayName: '温州市', province: '浙江', types: ['卫健数据'], resources: ['全民健康信息平台数据'], coordinate: [120.65, 28.01] },
+                    { region: '宁波', displayName: '宁波市', province: '浙江', types: ['卫健数据', '医保数据'], resources: ['全民健康信息平台数据'], coordinate: [121.55, 29.88] },
+                    { region: '广州', displayName: '广州市', province: '广东', types: ['卫健数据'], resources: ['全民健康信息平台数据'], coordinate: [113.27, 23.13] },
+                    { region: '山东', displayName: '山东省', province: '山东', types: ['卫健数据'], resources: ['国家健康大数据（北方）中心'], coordinate: [117.00, 36.65] }
+                ],
+
+                initApp() {
+                    this.activeDomain = this.content[this.lang].dataCatalog.filters.domain.options[0];
+                    this.activeApp = this.content[this.lang].dataCatalog.filters.application.options[0];
+                    this.activeDisease = this.content[this.lang].dataCatalog.filters.disease.options[0];
+
+                    // Watch for page changes: re-render icons + lazy init catalog map + resize
+                    this.$watch('activePage', () => {
+                        this.$nextTick(() => {
+                            try { lucide.createIcons(); } catch (e) {}
+                            if (this.activePage === 'data-catalog') {
+                                this.initCatalogMap();
+                                if (this.catalogRegionMapChart) {
+                                    try { this.catalogRegionMapChart.resize(); } catch (e) {}
+                                }
+                            }
+                        });
+                    });
+                    // Set initial welcome message for AI assistant
+                    this.setLang(this.lang);
+
+                    // If default page is data-catalog, init map after Alpine renders DOM
+                    if (this.activePage === 'data-catalog') {
+                        this.$nextTick(() => this.initCatalogMap());
+                    }
+                },
+                
+                get filteredDatasets() {
+                    const allDatasets = Object.entries(this.content[this.lang].dataCatalog.cards).map(([key, value]) => ({
+                        key: key,
+                        ...value
+                    }));
+
+                    const query = this.searchQuery.trim().toLowerCase();
+                    const escapedQuery = this.searchQuery.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const highlight = (text) => {
+                        if (!query || !text) return text;
+                        const regex = new RegExp('(' + escapedQuery + ')', 'gi');
+                        return text.replace(regex, '<mark class="bg-yellow-200 px-0.5 rounded-sm">$1</mark>');
+                    };
+
+                    return allDatasets
+                        .filter(d => {
+                            if (!query) return true;
+                            const tagsHay = (d.tags || []).join(' ').toLowerCase();
+                            return d.title.toLowerCase().includes(query)
+                                || (d.description && d.description.toLowerCase().includes(query))
+                                || (d.provider && d.provider.toLowerCase().includes(query))
+                                || tagsHay.includes(query);
+                        })
+                        .map(d => ({
+                            ...d,
+                            highlightedTitle: highlight(d.title),
+                            highlightedDescription: highlight(d.description),
+                        }));
+                },
+
+                // === Catalog (region map + table) helpers ===
+                get filteredCatalogRegionResources() {
+                    const type = this.selectedCatalogDataType;
+                    const query = this.searchQuery.trim().toLowerCase();
+                    return this.catalogRegionResources.filter(r => {
+                        const matchType = type === '全部' || r.types.includes(type);
+                        if (!matchType) return false;
+                        if (!query) return true;
+                        return [r.region, r.displayName, r.province, ...r.types, ...r.resources]
+                            .join(' ').toLowerCase().includes(query);
+                    });
+                },
+
+                getCatalogTypeStyle(t) {
+                    return this.catalogTypeStyles[t] || { bg: '#e2e8f0', text: '#334155', border: '#cbd5e1' };
+                },
+
+                selectCatalogDataType(t) {
+                    this.selectedCatalogDataType = t;
+                    this.selectedCatalogRegion = null;
+                    this.$nextTick(() => this.updateCatalogMap());
+                },
+
+                selectCatalogRegion(r) {
+                    this.selectedCatalogRegion = (this.selectedCatalogRegion === r) ? null : r;
+                    this.$nextTick(() => this.updateCatalogMap());
+                },
+
+                resetCatalogFilters() {
+                    this.selectedCatalogDataType = '全部';
+                    this.selectedCatalogRegion = null;
+                    this.searchQuery = '';
+                    this.$nextTick(() => this.updateCatalogMap());
+                },
+
+                async initCatalogMap() {
+                    if (this._catalogMapInited) return;
+                    this._catalogMapInited = true;
+                    try {
+                        if (typeof echarts === 'undefined') {
+                            this.catalogRegionMapErrorVisible = true;
+                            return;
+                        }
+                        const el = document.getElementById('catalogRegionMap');
+                        if (!el) { this._catalogMapInited = false; return; }
+                        this.catalogRegionMapChart = echarts.init(el);
+                        this.catalogRegionMapChart.showLoading('default', { text: this.lang === 'zh' ? '加载地图...' : 'Loading map...', color: '#2563eb', textColor: '#1d4ed8', maskColor: 'rgba(255,255,255,0.7)' });
+                        const ok = await loadChinaMapForCatalog();
+                        this.catalogRegionMapChart.hideLoading();
+                        if (!ok) {
+                            this.catalogRegionMapErrorVisible = true;
+                            return;
+                        }
+                        this.catalogRegionMapAvailable = true;
+                        const self = this;
+                        this.catalogRegionMapChart.on('click', function(params) {
+                            if (params.seriesType === 'effectScatter' && params.data && params.data.region) {
+                                self.selectCatalogRegion(params.data.region.region);
+                                return;
+                            }
+                            if (params.seriesType === 'map') {
+                                const inProvince = self.catalogRegionResources.filter(r => r.province === params.name).map(r => r.region);
+                                if (inProvince.length > 0) self.selectCatalogRegion(inProvince[0]);
+                            }
+                        });
+                        window.addEventListener('resize', function() {
+                            try { if (self.catalogRegionMapChart) self.catalogRegionMapChart.resize(); } catch (e) {}
+                        });
+                        this.updateCatalogMap();
+                    } catch (e) {
+                        console.error('[CatalogMap] init failed:', e);
+                        this.catalogRegionMapErrorVisible = true;
+                    }
+                },
+
+                updateCatalogMap() {
+                    if (!this.catalogRegionMapChart || !this.catalogRegionMapAvailable) return;
+                    const items = this.filteredCatalogRegionResources;
+                    const provinceMap = new Map();
+                    items.forEach(item => {
+                        if (!provinceMap.has(item.province)) {
+                            provinceMap.set(item.province, { province: item.province, regions: [], types: new Set(), resources: [] });
+                        }
+                        const e = provinceMap.get(item.province);
+                        e.regions.push(item);
+                        item.types.forEach(t => e.types.add(t));
+                        item.resources.forEach(r => e.resources.push(r));
+                    });
+                    const mapData = Array.from(provinceMap.values()).map(p => ({
+                        name: p.province,
+                        value: 60 + p.regions.length * 10,
+                        types: Array.from(p.types),
+                        regions: p.regions.map(r => r.displayName),
+                        resources: Array.from(new Set(p.resources))
+                    }));
+                    const sel = this.selectedCatalogRegion;
+                    const TYPE_STYLES = this.catalogTypeStyles;
+                    const scatterData = items.map(r => ({
+                        name: r.region,
+                        value: [r.coordinate[0], r.coordinate[1], 100],
+                        region: r,
+                        symbolSize: sel === r.region ? 16 : 8,
+                        itemStyle: {
+                            color: sel === r.region ? '#1d4ed8' : '#2563eb',
+                            shadowBlur: sel === r.region ? 24 : 14,
+                            shadowColor: '#3b82f6'
+                        }
+                    }));
+                    try {
+                        this.catalogRegionMapChart.setOption({
+                            backgroundColor: 'transparent',
+                            tooltip: {
+                                trigger: 'item',
+                                backgroundColor: 'rgba(255,255,255,0.96)',
+                                borderColor: '#bfdbfe',
+                                textStyle: { color: '#0f172a' },
+                                formatter: function(params) {
+                                    if (params.seriesType === 'effectScatter' && params.data && params.data.region) {
+                                        const r = params.data.region;
+                                        const tagsHtml = r.types.map(function(t) {
+                                            const sty = TYPE_STYLES[t] || { bg:'#e2e8f0', text:'#334155', border:'#cbd5e1' };
+                                            return '<span style="display:inline-block;padding:1px 7px;margin:2px 3px 0 0;border-radius:6px;font-size:11px;background:' + sty.bg + ';color:' + sty.text + ';border:1px solid ' + sty.border + '">' + t + '</span>';
+                                        }).join('');
+                                        return '<div style="padding:6px 8px;min-width:180px"><div style="font-size:13px;font-weight:bold;color:#1d4ed8;margin-bottom:4px">' + r.displayName + '</div><div style="font-size:11px;color:#64748b;margin-bottom:2px">数据类型</div><div style="margin-bottom:4px">' + tagsHtml + '</div><div style="font-size:11px;color:#64748b;">资源：' + r.resources.join('、') + '</div></div>';
+                                    }
+                                    if (params.seriesType === 'map' && params.data && params.data.types) {
+                                        const d = params.data;
+                                        const tagsHtml = d.types.map(function(t) {
+                                            const sty = TYPE_STYLES[t] || { bg:'#e2e8f0', text:'#334155', border:'#cbd5e1' };
+                                            return '<span style="display:inline-block;padding:1px 7px;margin:2px 3px 0 0;border-radius:6px;font-size:11px;background:' + sty.bg + ';color:' + sty.text + ';border:1px solid ' + sty.border + '">' + t + '</span>';
+                                        }).join('');
+                                        return '<div style="padding:6px 8px;min-width:200px"><div style="font-size:13px;font-weight:bold;color:#1d4ed8;margin-bottom:4px">' + params.name + '</div><div style="font-size:11px;color:#64748b;margin-bottom:2px">已对接城市（' + d.regions.length + '）</div><div style="font-size:11px;color:#0f172a;margin-bottom:4px">' + d.regions.join('、') + '</div><div style="font-size:11px;color:#64748b;margin-bottom:2px">数据类型</div><div>' + tagsHtml + '</div></div>';
+                                    }
+                                    return '<div style="padding:4px 8px;font-size:12px"><strong>' + params.name + '</strong><span style="color:#64748b;margin-left:6px">暂未接入</span></div>';
+                                }
+                            },
+                            visualMap: { min: 50, max: 120, show: false, inRange: { color: ['#bfdbfe', '#60a5fa', '#1d4ed8'] } },
+                            geo: {
+                                map: 'china', roam: true, zoom: 1.1,
+                                scaleLimit: { min: 0.8, max: 2.5 },
+                                label: { show: false },
+                                itemStyle: { areaColor: '#eff6ff', borderColor: '#93c5fd', borderWidth: 0.8 },
+                                emphasis: {
+                                    label: { show: true, color: '#1d4ed8', fontWeight: 'bold', fontSize: 11 },
+                                    itemStyle: { areaColor: '#60a5fa' }
+                                }
+                            },
+                            series: [
+                                {
+                                    name: '已合作区域',
+                                    type: 'map', map: 'china', geoIndex: 0, data: mapData,
+                                    label: { show: false },
+                                    emphasis: {
+                                        label: { show: true, color: '#fff', fontWeight: 'bold', fontSize: 11 },
+                                        itemStyle: { areaColor: '#2563eb' }
+                                    }
+                                },
+                                {
+                                    name: '资源点',
+                                    type: 'effectScatter', coordinateSystem: 'geo',
+                                    rippleEffect: { scale: 4, brushType: 'stroke' },
+                                    symbolSize: 8,
+                                    itemStyle: { color: '#2563eb', shadowBlur: 14, shadowColor: '#3b82f6' },
+                                    data: scatterData,
+                                    z: 5
+                                }
+                            ]
+                        }, { notMerge: true });
+                    } catch (e) {
+                        console.error('[CatalogMap] setOption failed:', e);
+                    }
+                },
+
+                openDatasetModal(key) {
+                    this.selectedDatasetKey = key;
+                    this.isModalOpen = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closeDatasetModal() {
+                    this.isModalOpen = false;
+                    setTimeout(() => { this.selectedDatasetKey = null; }, 300);
+                },
+
+                // Content for both Chinese and English languages
+                content: {
+                    zh: {
+                        header: {
+                            title: '国际创新药械“三医协同”可信数据空间（内测版）',
+                            nav: { home: '首页',  dataCatalog: '资源目录', solutions: '解决方案', partners: '生态伙伴', about: '关于我们' },
+                            login: '登录/注册'
+                        },
+                        home: {
+                            hero: { title: '国际创新药械“三医协同”可信数据空间', subtitle: '链接数据孤岛，释放真实世界数据价值，赋能“三医协同”数据创新发展', cta1: '探索数据生态', cta2: '查看解决方案' },
+                            features: {
+                                title: '平台核心价值',
+                                subtitle: '我们构建了一个安全、合规、高效的数据协作网络，为医疗健康产业的每一个参与者释放价值。',
+                                cards: [
+                                    { title: '可信与安全', description: '采用隐私计算、区块链等前沿技术，确保数据“可用不可见”，全流程可管控。' },
+                                    { title: '合规与治理', description: '遵循国家法规与行业指南，建立完善的数据分级分类与授权机制，确保数据合规使用。' },
+                                    { title: '高效与协同', description: '在“原始数据不出域、可用不可见”原则下，实现跨域、跨机构的安全协同应用。' },
+                                    { title: '价值共创', description: '建立公平的收益共享机制，激励数据提供方与服务方，共同构建繁荣的数据生态。' }
+                                ]
+                            },
+                              scenarios: {
+                                title: '聚焦四大高价值场景',
+                                subtitle: '从临床研究到市场准入，我们为医疗药械创新的关键环节提供强有力的数据支持。数据驱动，赋能产业、政府、民生与医疗服务创新。',
+                                cards: [
+                                    { title: '支持药械产品注册上市、药物警戒、适应症扩展等', description: '依据三医协同发国家药监局发布的真实世界数据应用指导原则，建立研究设计、数据探查、数据治理、统计分析、溯源核查的全流程应用机制。' },
+                                    { title: '支持国家医保目录的动态调整及价值评估', description: '依据国家医保局价值评估规则，建立研究设计、数据探查、数据治理、统计分析、溯源核查的全流程应用机制。' },
+                                    { title: '支持高质量数据集高性能密态计算辅助AI模型训练', description: '在医疗数据要素流通场景中，提供“效率+安全+通用性”的安全计算能力支持医药垂类模型训练。' },
+                                    { title: '“三医”协同跨区域长周期数据支持“惠民、助医、辅政”数据产品开发', description: '依托海南省“三医”数据等区域数据中心，建立中国数据资源目录，根据项目需求进行数据融合应用，释放“三医”数据要素价值。' }
+                                ]
+                            },
+                            cta: {
+                                title: '加入我们的生态系统',
+                                subtitle: '无论您是数据提供方、数据服务商还是数据使用者，我们都欢迎您的加入，共同推动医疗健康产业的数字化转型。',
+                                button: '立即加入'
+                            }
+                        },
+                        dataCatalog: {
+                            title: '数据资源目录',
+                            subtitle: '汇聚多源数据，促进多场景应用，支持主体培育，基于数据要素的新产品和新服务，盘活数据资源，共谋新生生产力实现路径',
+                            searchPlaceholder: '请输入检索关键词，支持按数据集名称和数据提供方检索',
+                            regionFilter: {
+                                typeLabel: '按数据类型',
+                                typeHint: '点击筛选地图与列表',
+                                regionLabel: '按区域',
+                                regionHint: '点击地图省份或资源点联动右侧表格',
+                                tableTitle: '已对接数据资源',
+                                tableHeaderRegion: '区域 / 城市',
+                                tableHeaderTypes: '对接数据资源类型',
+                                tableEmpty: '暂无符合筛选条件的地区',
+                                countSuffix: '市',
+                                mapErrorText: '地图资源加载失败，请检查网络或地图资源地址',
+                                typeLabels: { '全部': '全部', '医疗机构数据': '医疗机构数据', '卫健数据': '卫健数据', '医保数据': '医保数据', '药监数据': '药监数据', '疾控数据': '疾控数据' }
+                            },
+                            filters: {
+                                domain: {
+                                    label: '数据领域',
+                                    options: ['全部', '健康状况数据', '医疗应用数据', '医疗支付数据', '卫生资源数据', '公共卫生数据', '其他']
+                                },
+                                application: {
+                                    label: '应用领域',
+                                    options: ['全部', '医疗器械研发', '算法模型研发', '临床试验', '真实世界研究', '其他']
+                                },
+                                disease: {
+                                    label: '所属病种',
+                                    options: ['全部', '肿瘤', '糖尿病', '肺炎', '胰腺癌','肥胖症', '肝癌', '甲状腺',],
+                                    more: '更多'
+                                }
+                            },
+                            sorting: {
+                                comprehensive: '综合排序',
+                                views: '浏览量'
+                            },
+                            cardFields: {
+                                size: '数据量级',
+                                scale: '覆盖范围',
+                                provider: '数据提供方',
+                                releaseDate: '更新频率',
+                                expiryDate: '更新周期',
+                            },
+                            cards: {
+                                card1: {
+                                    title: '海南“三医”数据',
+                                    tags: ['健康状况数据', '医疗应用数据', '医疗支付数据', '卫生资源数据', '公共卫生数据', '其他'],
+                                    description: '覆盖所有公立医疗卫生机构，海南全省69家二级以上公立医疗机构数据治理提升工作，基本实现民营医院与诊所接入三医平台。',
+                                    size: '48.03TB',
+                                    scale: '海南省',
+                                    provider: '海南卫健委统计信息中心',
+                                    releaseDate: '实时更新',
+                                    expiryDate: '每天',
+                                    icon: 'shield-half'
+                                },
+                                card3: {
+                                    title: '厦门市健康医疗大数据库、多模态数据集',
+                                    tags: ['健康状况数据', '医疗应用数据','卫生资源数据', '公共卫生数据','其他'],
+                                    description: '厦门市医疗云覆盖超500家各级医疗机构，包括23家公立医院、3家公共卫生机构、54家基层社区、300多家卫生所及40多家社会办医机构。',
+                                    size: '40PB',
+                                    scale: '厦门市',
+                                    provider: '国家健康医疗大数据南方中心',
+                                    releaseDate: '实时更新',
+                                    expiryDate: '每天',
+                                    icon: 'brain-circuit'
+                                },
+                            }
+                        },
+                        solutions: {
+                            title: '解决方案',
+                            subtitle: '可信数据空间上的真实世界数据流通与概念验证：应用场景理念与示范案例。',
+                            nav: { scenarioPoc: '应用场景PoC', demos: '示范案例' },
+                            scenarioPoc: {
+                                lead: 'PoC 项目是指数据资源统筹、质量控制与流通机制概念验证项目，面向监管可采信、行业可落地的真实世界数据流通体系开展验证。',
+                                missionHighlight: {
+                                    title: '乐城真实世界数据研究试点工作',
+                                    paragraphs: [
+                                        '工作小组统筹真研试点与可信数据空间试点衔接，组织行业主体在合规框架下验证 RWD 流通机制：从场景遴选、数据质控、分布式分析到过程留痕与核查应对，形成可复制的“数据到证据”闭环。',
+                                        '重点推动多中心回顾性研究、外部对照与借用方法、医保准入价值证据等典型场景落地，服务药械监管决策与医保政策创新，并为国家层面元数据目录、质控规范与跨域流通规则提供实践反馈。',
+                                    ],
+                                },
+                                tdsPain: {
+                                    title: '可信数据空间如何回应行业痛点',
+                                    paragraphs: [
+                                        '行业痛点集中在：医疗数据元数据不统一、质控与跨域流通规则不完善、监管对全流程溯源与可核查要求不断提高，而传统“数据集中再分析”模式合规成本高、协作难。',
+                                        '可信数据空间以身份认证、使用控制、隐私计算与链式留痕为支撑，使原始数据可驻留在机构本地参与联合统计，在“可用不可见”前提下完成等价于集中分析的多中心证据生产，降低流通摩擦并满足核查口径。',
+                                    ],
+                                },
+                                sections: [
+                                    {
+                                        heading: '试点背景与乐城角色',
+                                        paragraphs: [
+                                            '海南博鳌乐城国际医疗旅游先行区是国家药监局“临床真实世界数据应用试点”与国家数据局“行业可信数据空间创新发展试点”的双重国家级试验田，致力于探索 RWD 支持药械注册、医保准入及上市后评价的创新路径。',
+                                            '自 2019 年国家药监局和海南省政府联合印发真研试点工作实施方案以来，乐城已累计推动 26 个产品通过真实世界数据获批上市，初步建立了法规体系与监管科学框架。',
+                                        ],
+                                    },
+                                    {
+                                        heading: 'PoC 总体目标',
+                                        paragraphs: [
+                                            '在原始数据不出域前提下，验证基于分布式计算的可信数据空间能否完成与传统集中分析统计等价的多中心数据分析；交付可验证、可回溯、可复现且满足核查要求的证据体系，统计报告附带完整过程证明供监管采信。',
+                                        ],
+                                    },
+                                ],
+                                participationHeading: '生态参与与能力发挥',
+                                participationIntro: '以下为参与方可贡献的典型环节与能力，具体合作形态以项目安排为准。',
+                                participationItems: [
+                                    { title: '提供真实研究场景', text: '例如上市后药品的适应症扩展、不良反应主动监测、医保准入成本效果分析等。' },
+                                    { title: '参与统计方案设计', text: '共同制定标准化统计分析方案与脚本，明确入排标准、变量定义、统计模型。' },
+                                    { title: '参与结果验证与核查支持', text: '对比隐私计算结果与数据汇总后的分析结果，验证统计等价性；结合监管核查经验，优化过程记录和证据链设计。' },
+                                    { title: '协同推动监管沟通', text: '借助真研试点与药监、医保部门的常态化沟通，推动验证成果向监管认可的证据采信路径转化。' },
+                                    { title: '提供高质量的数据资源', text: '贡献脱敏后的真实世界数据用于多中心联合分析；数据无需离开本地，仅参与本地计算。' },
+                                    { title: '参与医疗数据相关国标制定', text: '参与标准制定与修订，推进落地可行的数据标准，提升可及性与可用性。' },
+                                ],
+                                flowPathTitle: '概念验证技术路径',
+                                flowPathCaption: '以下链路适用于 PoC 各应用场景；示范案例卡片不再重复展示该流程图。',
+                                flowPathObjective: '目标：在可信数据空间内完成从业务问题、统计方案、本地/分布式计算、过程留痕与等价性验证，直至形成可供监管论证的过程控制报告与统计分析交付物。',
+                                flowSteps: [
+                                    '真实研究场景与业务问题：上市后评价、安全性监测、准入分析等',
+                                    '标准化统计方案：入排标准、变量定义、模型与统计分析计划',
+                                    '多中心数据源：脱敏数据本地驻留，仅参与本地或可验证的联合计算',
+                                    '可信数据空间编排：分布式隐私计算，替代不合规的集中汇聚',
+                                    '过程留痕：操作、参数与中间结果可追溯、可复现',
+                                    '统计等价性验证：与汇总基线或金标准对照，专家参与评审',
+                                    '过程控制报告与完整证据链，满足核查要点',
+                                    '附带过程证明的统计分析报告，支撑监管采信路径论证',
+                                ],
+                            },
+                            demos: {
+                                relationText: '应用场景 PoC 阐述总体理念与技术路径；示范案例列出三个独立业务 Demo，并与项目 SAP 及方法学示例对齐。技术路径流程图仅在应用场景 PoC 中统一展示，案例卡片聚焦背景与亮点。演示入口可按 routeKey 对接独立页面。',
+                                cases: [
+                                    {
+                                        tag: '场景一',
+                                        title: '回顾性多中心真实世界研究的分布式统计分析',
+                                        subtitle: '数据不出域前提下完成联合统计，交付申办方监管递交级证据',
+                                        backgroundTitle: '项目背景',
+                                        backgroundPoints: [
+                                            '本场景面向药品与器械上市后等回顾性多中心真实世界研究：各中心数据需留在本地，同时又要得到与“数据集中后分析”统计结论可对照、可解释的联合结果，以满足申办方向监管机构递交的材料要求。',
+                                            '依托可信数据空间的分布式计算与过程留痕能力，在多中心之间编排同一套预先约定的统计分析计划，在原始数据不出域的前提下完成多中心队列的统计推断与敏感性分析。',
+                                            '交付物对齐监管递交口径：可审计的分析过程、完整证据链及附带过程证明的统计分析报告，支撑与监管的沟通与论证；具体疾病领域与终点设置可由项目统计分析计划约定，并以 PoC 中合并数据 SAP 等文档作为方法学与流程示例。',
+                                        ],
+                                        highlightsTitle: '核心亮点',
+                                        highlightPills: ['多中心数据本地参与、分布式联合统计', '与集中分析路径的等价性验证思路', '过程可控、可追溯、可复现', '面向监管递交的证据包与报告形态'],
+                                        demoEntry: {
+                                            enabled: false,
+                                            href: '',
+                                            routeKey: 'scenario1_distributed_multicenter_rwd',
+                                            buttonLabel: '进入演示',
+                                            disabledLabel: '演示接入准备中',
+                                        },
+                                    },
+                                    {
+                                        tag: '场景二',
+                                        title: '跨区域多来源外部对照与贝叶斯信息借用',
+                                        subtitle: '单臂试验结合多来源外部对照的分析示范',
+                                        backgroundTitle: '项目背景',
+                                        backgroundPoints: [
+                                            '单臂试验缺乏随机对照时，常引入外部对照；当外部数据来自多个来源时，需同时处理治疗组与对照的基线混杂，以及不同外部来源之间的异质性。',
+                                            '本示范沿用“单臂试验结合多来源外部对照”思路：在当前治疗组与两个独立外部对照来源上，构建 IPTW 加权、加权后回归，以及 IPTW 结合固定功效先验的贝叶斯信息借用等分析路径。',
+                                            '示例覆盖生存、二分类与连续三类结局，用于展示多来源外部对照下方法选择与结果稳健性评估，可映射至跨区域、跨机构真实世界数据协作中的对照借用与灵敏度分析需求。',
+                                        ],
+                                        highlightsTitle: '核心亮点',
+                                        highlightPills: ['多来源外部对照联合建模', 'IPTW 改善基线可比性', '贝叶斯固定 power 先验借用', '多终点并列与策略可比'],
+                                        demoEntry: {
+                                            enabled: false,
+                                            href: '',
+                                            routeKey: 'scenario2_bayes_external_control',
+                                            buttonLabel: '进入演示',
+                                            disabledLabel: '演示接入准备中',
+                                        },
+                                    },
+                                    {
+                                        tag: '场景三',
+                                        title: '医保准入与价值评估的真实世界证据',
+                                        subtitle: '成本效果、预算影响与目录谈判支持',
+                                        backgroundTitle: '项目背景',
+                                        backgroundPoints: [
+                                            '医保目录调整与续约越来越依赖真实世界有效性、安全性与经济性证据；传统数据汇聚难以在保护隐私前提下快速完成多源成本与效用参数整合。',
+                                            '本示范聚焦创新药械医保准入：基于多中心诊疗路径、费用与生存/质量数据，构建成本效果分析与预算影响分析框架，并与临床获益、安全性信号交叉验证。',
+                                            '通过可信数据空间在本地完成统计与联邦聚合，形成涵盖方法学、假设与敏感性分析、可供医保方复核的证据包，支撑价值评估与谈判材料编制。',
+                                        ],
+                                        highlightsTitle: '核心亮点',
+                                        highlightPills: ['RWD 支撑 HTA 与医保价值论证', '费用与结局多源对齐', '敏感性分析与情景库', '过程可追溯以满足核查'],
+                                        demoEntry: {
+                                            enabled: false,
+                                            href: '',
+                                            routeKey: 'scenario3_reimbursement_hta',
+                                            buttonLabel: '进入演示',
+                                            disabledLabel: '演示接入准备中',
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                          partners: {
+                            title: '共建医疗数据新生态',
+                            subtitle: '我们与来自全球的顶尖医疗机构、医药企业、科研院所及监管部门紧密合作，共同释放数据价值。',
+                            tabs: { providers: '数据提供方', services: '数据服务方', users: '数据使用方',regulators: '数据监管方' },
+                            providers: { 
+                                title: '数据提供方',
+                                categories: [
+                                    { name: '数据中心', partners: ['海南省“三医”平台', '国家健康医疗大数据南方中心', '厦门市健康医疗大数据有限公司', '江苏省产业技术研究院有限公司', '天津市天河数字产业科技有限公司'] },
+                                ]
+                            },
+                            services: { 
+                                title: '数据服务方',
+                                categories: [
+                                    { name: '数据合规与安全服务', partners: ['功承瀛泰', '浩天律师事务所', '北京数风科技有限公司'] },
+                                    { name: '技术服务', partners: ['中国电信', '中国移动', '中国联通', '海南数据产品超市', '贝斯必特（上海）信息科技有限公司', '杭州古珀医疗科技有限公司', '山东华链医疗科技有限公司', '医渡云', '上海生物芯片有限公司', '深圳数鑫科技有限公司'] },
+                                    { name: '数据管理与统计分析服务', partners: ['海南泰格医药科技有限公司', '国家健康医疗大数据研究院', '海南博研医学研究有限公司'] },
+                                ]
+                            },
+                            users: { title: '医药企业', more: '及其他180+家企业' },
+                            regulators: { title: '监管部门与机构' },
+                            cta: { title: '成为我们的合作伙伴', subtitle: '加入一个充满活力的生态系统，共同定义医疗健康的未来。我们欢迎更多有远见的组织加入我们。', button: '联系我们' }
+                        },
+                        about: {
+                            title: '关于我们',
+                            subtitle: '我们致力于打破数据壁垒，构建一个可信、合规、高效的医疗数据生态系统，推动中国乃至全球的医疗健康事业发展。',
+                            mission: {
+                                title: '我们的使命与愿景',
+                                p1: '在海南自由贸易港的国家战略支持下，海南博鳌乐城数字科技发展有限公司肩负着建设和运营乐城医疗数据可信数据空间的使命。我们旨在解决医药行业数据应用“概念热、应用冷”的痛点，通过技术和规则创新，降低数据流通成本，提高高质量、合规数据的可及性。',
+                                p2: '我们的愿景是成为全球领先的真实世界数据应用平台，以“三医协同”为抓手，释放医疗数据要素价值，赋能医药产业高质量发展，最终惠及每一位患者。'
+                            },
+                            stats: {
+                                stat1: { value: '21+', label: '款获批上市药械' },
+                                stat2: { value: '13+', label: '项数据应用指导原则' },
+                                stat3: { value: '180+', label: '家深度合作医药企业' },
+                                stat4: { value: '649', label: '个“三医”联动数据集' }
+                            },
+                            timeline: {
+                                title: '发展历程',
+                                items: [
+                                    { year: '2013年', title: '先行区设立', description: '国务院印发文件，正式设立海南博鳌乐城国际医疗旅游先行区。' },
+                                    { year: '2019年', title: '“国九条”2.0政策', description: '国家四部委联合印发方案，支持乐城开展真实世界临床数据应用试点。' },
+                                    { year: '2020年', title: '首个成果落地', description: '首款使用乐城真实世界数据辅助获批的医疗器械“青光眼引流管”在中国上市。' },
+                                    { year: '2024年', title: '“三医”协同深化', description: '海南省实现“三医联动一张网”，并与国家医保局合作，探索真实世界数据支持医保准入。' },
+                                    { year: '2025年及以后', title: '未来展望', description: '启动可信数据空间基础设施建设，目标在2027年全面投入使用，打造世界一流的医疗数据生态平台。' }
+                                ]
+                            },
+                            governance: {
+                                title: '专业的治理架构',
+                                cards: [
+                                    { title: '监管引领', description: '由“三医”监管部门组成领导工作组，统筹把握总体方向，确保平台发展的合规性与战略性。' },
+                                    { title: '专业支撑', description: '设立空间运营、数据质量控制和技术支持团队，并组建由顶尖临床医学、监管科学及合规专家组成的委员会。' },
+                                    { title: '产业落地', description: '确保每一项数据应用都兼具医学严谨性、监管合规性与临床实用性，真正服务于产业发展。' }
+                                ]
+                            }
+                        },
+                        footer: {
+                            title: '国际创新药械“三医协同”可信数据空间',
+                            subtitle: '由海南博鳌乐城数字科技发展有限公司负责建设。',
+                            links: {
+                                quick: { title: '快速链接', home: '首页', dataCatalog: '数据资源目录', solutions: '解决方案', partners: '合作伙伴' },
+                                legal: { title: '法律', privacy: '隐私政策', terms: '服务条款', security: '数据安全白皮书' },
+                            },
+                            contact: {
+                                title: '联系我们',
+                                address: '地址：海南省琼海市博鳌乐城国际医疗旅游先行区',
+                                email: '邮箱：rws_dataresearch@163.com'
+                            },
+                            copyright: '海南博鳌乐城数字科技发展有限公司. All Rights Reserved.'
+                        }
+                    },
+                    en: {
+                        header: {
+                            title: 'Lecheng Medical Data Space',
+                            nav: { home: 'Home', dataCatalog: 'Data Catalog', solutions: 'Solutions', partners: 'Partners', about: 'About Us' },
+                            login: 'Login/Register'
+                        },
+                        home: {
+                            hero: { title: 'Hainan Lecheng Trusted Medical Data Space', subtitle: 'Connecting data silos, unlocking the value of real-world data, and empowering innovative development in healthcare.', cta1: 'Explore Ecosystem', cta2: 'View Solutions' },
+                            features: {
+                                title: 'Core Platform Value',
+                                subtitle: 'We build a secure, compliant, and efficient data collaboration network, creating value for every participant in the healthcare industry.',
+                                cards: [
+                                    { title: 'Trust & Security', description: 'Utilizing cutting-edge technologies like privacy computing and blockchain to ensure data is "usable but not visible" and fully traceable.' },
+                                    { title: 'Compliance & Governance', description: 'Adhering to national regulations and industry guidelines, we establish robust data classification and authorization mechanisms for compliant data use.' },
+                                    { title: 'Efficiency & Synergy', description: 'Breaking down data barriers to achieve integrated data flow, accelerating the entire cycle from research to clinical application.' },
+                                    { title: 'Shared Value Creation', description: 'Establishing a fair benefit-sharing mechanism to incentivize data providers and service partners, fostering a prosperous data ecosystem.' }
+                                ]
+                            },
+                            scenarios: {
+                                title: 'Focusing on Four High-Value Scenarios',
+                                subtitle: 'From clinical research to market access, we provide powerful data support for the key stages of medical innovation.',
+                                cards: [
+                                    { title: 'Drug & Device Registration', description: 'Leverage high-quality real-world data to support the registration and approval of innovative drugs and devices in China, shortening time-to-market.' },
+                                    { title: 'Support for Insurance Access', description: 'Provide real-world evidence for dynamic adjustments to the medical insurance catalog, supporting multi-dimensional value assessment.' },
+                                    { title: 'New Technology Clinical Evaluation', description: 'Offer full-cycle clinical tracking and evaluation data support for cutting-edge biomedical technologies like cell and gene therapy.' },
+                                    { title: 'Imported Health/Medical Food Registration', description: 'Support real-world data collection for temporary imported health and special medical foods for domestic registration or filing.' }
+                                ]
+                            },
+                            cta: {
+                                title: 'Join Our Ecosystem',
+                                subtitle: 'Whether you are a data provider, technology partner, or data user, we welcome you to join us in driving the digital transformation of the healthcare industry.',
+                                button: 'Join Now'
+                            }
+                        },
+                        dataCatalog: {
+                            title: 'High-Quality Datasets',
+                            subtitle: 'Aggregate multi-source data, promote multi-scenario applications, support subject cultivation, new products and services based on data elements, revitalize data resources, and jointly seek a path to realize new productivity.',
+                            searchPlaceholder: 'Enter keywords to search by dataset name or provider',
+                            regionFilter: {
+                                typeLabel: 'By Data Type',
+                                typeHint: 'Click to filter map and table',
+                                regionLabel: 'By Region',
+                                regionHint: 'Click a province or resource point to highlight the table',
+                                tableTitle: 'Onboarded Data Resources',
+                                tableHeaderRegion: 'Region / City',
+                                tableHeaderTypes: 'Data Types',
+                                tableEmpty: 'No regions match current filters',
+                                countSuffix: 'cities',
+                                mapErrorText: 'Failed to load map resource. Please check network or map URL.',
+                                typeLabels: { '全部': 'All', '医疗机构数据': 'Medical Institution', '卫健数据': 'Health Commission', '医保数据': 'Insurance', '药监数据': 'Drug Regulation', '疾控数据': 'Disease Control' }
+                            },
+                            filters: {
+                                domain: {
+                                    label: 'Data Domain',
+                                    options: ['All', 'Personal Attributes', 'Health Status', 'Medical Application', 'Medical Payment', 'Health Resources', 'Public Health', 'Other']
+                                },
+                                application: {
+                                    label: 'Application Area',
+                                    options: ['All', 'Vaccine/Drug R&D', 'Medical Device R&D', 'Algorithm Model R&D', 'Clinical Trials', 'Real-World Studies', 'Other']
+                                },
+                                disease: {
+                                    label: 'Disease Category',
+                                    options: ['All', 'Oncology', 'Diabetes', 'Pneumonia', 'Neonatal Jaundice', 'Pancreatic Cancer', 'Multiple Sclerosis', 'Obesity', 'Liver Cancer', 'Infectious Peritonitis', 'Thyroid', 'Orthodontics'],
+                                    more: 'More'
+                                }
+                            },
+                            sorting: {
+                                comprehensive: 'Comprehensive',
+                                views: 'Views'
+                            },
+                            cardFields: {
+                                size: 'Data Size',
+                                scale: 'Data Scale',
+                                provider: 'Data Provider',
+                                releaseDate: 'Release Date',
+                                expiryDate: 'Expiry Date',
+                            },
+                            cards: {
+                                card1: {
+                                    title: 'Neuromyelitis Optica Dataset',
+                                    tags: ['Health Status', 'Algorithm R&D', 'NMO'],
+                                    description: 'This dataset includes results from relevant tests for patients with neuromyelitis optica spectrum disorder.',
+                                    size: '2.8GB',
+                                    scale: '1.10M records',
+                                    provider: 'The Third Affiliated Hospital of Sun Yat-sen University',
+                                    releaseDate: '2025-07-29',
+                                    expiryDate: '2025-07-29',
+                                    icon: 'shield-half'
+                                },
+                                card2: {
+                                    title: 'Multiple Sclerosis Dataset',
+                                    tags: ['Health Status', 'Algorithm R&D', 'Multiple Sclerosis'],
+                                    description: 'This dataset includes results from relevant tests for patients with multiple sclerosis.',
+                                    size: '6.1GB',
+                                    scale: '1.60M records',
+                                    provider: 'The Third Affiliated Hospital of Sun Yat-sen University',
+                                    releaseDate: '2025-05-06',
+                                    expiryDate: '2025-05-06',
+                                    icon: 'aperture'
+                                },
+                                card3: {
+                                    title: 'Autoimmune Encephalitis Dataset',
+                                    tags: ['Health Status', 'Algorithm R&D', 'Infectious Encephalitis'],
+                                    description: 'This dataset includes results from relevant tests for patients with autoimmune encephalitis.',
+                                    size: '4.9GB',
+                                    scale: '1.28M records',
+                                    provider: 'The Third Affiliated Hospital of Sun Yat-sen University',
+                                    releaseDate: '2025-05-06',
+                                    expiryDate: '2025-05-06',
+                                    icon: 'brain-circuit'
+                                },
+                                card4: {
+                                    title: 'Sleep-Wake Disorder Standard Dataset',
+                                    tags: ['Medical Application', 'Algorithm R&D', 'Sleep-Wake Disorder'],
+                                    description: 'Using sleep-wake disorders as the inclusion criteria, a total of 2581 disease indicators were sorted, including basic information, medical visit information, medical diagnoses, etc.',
+                                    size: '40GB',
+                                    scale: '10.60M records',
+                                    provider: 'Guangzhou Women and Children\'s Medical Center',
+                                    releaseDate: '2025-05-06',
+                                    expiryDate: '2025-05-06',
+                                    icon: 'bed-double'
+                                },
+                                card5: {
+                                    title: 'Preterm Fetal Congenital Malformation Ultrasound Screening Dataset',
+                                    tags: ['Medical Application', 'Algorithm R&D', 'Congenital Malformation'],
+                                    description: 'Our hospital has information on 130,000+ pregnant women and high-definition stored ultrasound data from the past century...',
+                                    size: '5.4GB',
+                                    scale: '1.42M records',
+                                    provider: 'The First Affiliated Hospital of Capital University',
+                                    releaseDate: '2025-05-06',
+                                    expiryDate: '2025-05-06',
+                                    icon: 'baby'
+                                },
+                                card6: {
+                                    title: 'Cryptococcal Meningitis Dataset',
+                                    tags: ['Health Status', 'Algorithm R&D', 'Cryptococcal Meningitis'],
+                                    description: 'This dataset includes results from relevant tests for patients with cryptococcal meningitis.',
+                                    size: '6.7GB',
+                                    scale: '1.80M records',
+                                    provider: 'The Third Affiliated Hospital of Sun Yat-sen University',
+                                    releaseDate: '2025-05-06',
+                                    expiryDate: '2025-05-06',
+                                    icon: 'dna'
+                                },
+                            }
+                        },
+                        solutions: {
+                            title: 'Solutions',
+                            subtitle: 'RWD circulation and the PoC on the trusted data space: application scenarios and demonstration cases.',
+                            nav: { scenarioPoc: 'PoC application scenarios', demos: 'Demonstration cases' },
+                            scenarioPoc: {
+                                lead: 'The PoC validates data-resource coordination, quality control, and circulation mechanisms—building a regulatory-grade, industry-feasible RWD circulation model.',
+                                missionHighlight: {
+                                    title: 'Lecheng real-world research pilot work',
+                                    paragraphs: [
+                                        'The group aligns the clinical RWD pilot with the trusted data space pilot, organizing partners to validate RWD circulation end-to-end: scenario selection, QC, distributed analytics, process logging, and inspection readiness, producing a replicable “data to evidence” loop.',
+                                        'It prioritizes multi-center retrospective studies, external control and borrowing methods, and reimbursement value evidence to support regulatory and payer decisions, and feeds national work on metadata, QC norms, and cross-domain circulation.',
+                                    ],
+                                },
+                                tdsPain: {
+                                    title: 'How the trusted data space addresses industry pain points',
+                                    paragraphs: [
+                                        'Pain points include inconsistent healthcare metadata, immature QC and cross-domain rules, and rising regulatory demand for traceability—while traditional “centralize then analyze” models are costly and hard to keep compliant.',
+                                        'A trusted data space combines identity, usage control, privacy computing, and audit trails so raw data can stay local while supporting federated statistics equivalent to centralized analysis—reducing friction and meeting inspection expectations.',
+                                    ],
+                                },
+                                sections: [
+                                    {
+                                        heading: 'Pilot background and Lecheng’s role',
+                                        paragraphs: [
+                                            'Hainan Boao Lecheng serves as the dual national pilot for NMPA clinical RWD and NDRC industry trusted data space, exploring RWD for registration, reimbursement, and post-market evaluation.',
+                                            'Since 2019, Lecheng has helped 26 products gain approval using RWD, establishing an initial regulatory framework.',
+                                        ],
+                                    },
+                                    {
+                                        heading: 'Overall PoC goal',
+                                        paragraphs: [
+                                            'Without raw data leaving local sites, verify that distributed computing in a trusted data space can match centralized multi-center analysis and deliver verifiable, traceable, reproducible evidence packages with full process documentation for regulatory acceptance.',
+                                        ],
+                                    },
+                                ],
+                                participationHeading: 'How partners contribute',
+                                participationIntro: 'Typical contribution areas are listed below; exact roles follow project planning.',
+                                participationItems: [
+                                    { title: 'Real study scenarios', text: 'Such as label extension, active safety surveillance, or cost-effectiveness for reimbursement.' },
+                                    { title: 'Statistical planning', text: 'Joint SAP development—eligibility, variables, and models.' },
+                                    { title: 'Validation and inspection support', text: 'Equivalence checks and evidence-chain design informed by inspection experience.' },
+                                    { title: 'Regulatory engagement', text: 'Align outcomes with evidence-acceptance paths via routine pilot channels.' },
+                                    { title: 'High-quality data resources', text: 'Local-only de-identified data joining verified computation.' },
+                                    { title: 'Standards participation', text: 'National technical committee input on healthcare data standards.' },
+                                ],
+                                flowPathTitle: 'PoC technical path',
+                                flowPathCaption: 'This chain applies across PoC scenarios; demonstration cards focus on background and highlights only.',
+                                flowPathObjective: 'Goal: move from the business question and SAP through local/federated computation and logging, to equivalence review and inspection-ready process-control and statistical deliverables.',
+                                flowSteps: [
+                                    'Business scenario: post-market, surveillance, access analytics, and related questions',
+                                    'Standardized SAP: eligibility, variables, models, scripts',
+                                    'Multi-center data local or verifiably joint computation',
+                                    'Trusted data space orchestration: privacy computing instead of raw pooling',
+                                    'Process logging: traceable parameters and reproducible steps',
+                                    'Statistical equivalence vs. pooled or gold-standard analyses',
+                                    'Process-control report and evidence chain, inspection-ready',
+                                    'Statistical outputs with process proof → regulatory acceptance path',
+                                ],
+                            },
+                            demos: {
+                                relationText: 'PoC application scenarios explain the narrative and technical path; demonstration cases list three demos aligned with SAP and methods examples. The flow diagram appears only in the first tab; cards emphasize background and highlight tags. Demo buttons are stubs keyed by routeKey.',
+                                cases: [
+                                    {
+                                        tag: 'Scenario 1',
+                                        title: 'Distributed statistics for retrospective multi-center RWD',
+                                        subtitle: 'Joint analysis without raw data export, submission-grade evidence for sponsors',
+                                        backgroundTitle: 'Project background',
+                                        backgroundPoints: [
+                                            'This scenario supports post-market retrospective multi-center real-world studies: sites must keep data local while still producing combined results that are comparable and explainable versus a traditional centralized pooling analysis, meeting sponsor needs for regulatory submissions.',
+                                            'Using distributed computation and process logging in a trusted data space, sites run a pre-specified statistical analysis plan across centers without moving identifiable raw data outside local controls.',
+                                            'Deliverables follow regulatory submission expectations: auditable execution, a complete evidence chain, and statistical reports with process documentation for agency dialogue; disease area and endpoints follow the project SAP, with merged-data SAP artifacts in the PoC as methodological examples.',
+                                        ],
+                                        highlightsTitle: 'Core highlights',
+                                        highlightPills: ['Local data joins verified multi-center computation', 'Equivalence mindset versus centralized analysis', 'Traceable, reproducible process control', 'Evidence packaging oriented to regulatory filing'],
+                                        demoEntry: {
+                                            enabled: false,
+                                            href: '',
+                                            routeKey: 'scenario1_distributed_multicenter_rwd',
+                                            buttonLabel: 'Open demo',
+                                            disabledLabel: 'Demo connection pending',
+                                        },
+                                    },
+                                    {
+                                        tag: 'Scenario 2',
+                                        title: 'Multi-source external control with Bayesian borrowing',
+                                        subtitle: 'Single-arm trial with multi-source external comparators',
+                                        backgroundTitle: 'Project background',
+                                        backgroundPoints: [
+                                            'Single-arm trials often need external controls; multiple sources introduce confounding between arms and heterogeneity across sources.',
+                                            'The demo follows a single-arm plus two external sources, showing IPTW weighting, weighted regression, and IPTW plus Bayesian borrowing with a fixed power prior.',
+                                            'It spans survival, binary, and continuous outcomes to illustrate method choice and robustness—mapping to cross-region RWD collaboration for borrowing and sensitivity analyses.',
+                                        ],
+                                        highlightsTitle: 'Core highlights',
+                                        highlightPills: ['Joint modeling of multi-source controls', 'IPTW for baseline balance', 'Bayesian fixed power borrowing', 'Multi-endpoint strategy comparison'],
+                                        demoEntry: {
+                                            enabled: false,
+                                            href: '',
+                                            routeKey: 'scenario2_bayes_external_control',
+                                            buttonLabel: 'Open demo',
+                                            disabledLabel: 'Demo connection pending',
+                                        },
+                                    },
+                                    {
+                                        tag: 'Scenario 3',
+                                        title: 'Reimbursement access and value assessment',
+                                        subtitle: 'Cost-effectiveness, budget impact, and catalog negotiation support',
+                                        backgroundTitle: 'Project background',
+                                        backgroundPoints: [
+                                            'Payer decisions increasingly rely on RWD for effectiveness, safety, and economics; central pooling struggles to merge cost and outcome parameters privately.',
+                                            'The demo frames innovative product access: multi-center pathways, costs, and survival/quality data for CEA and BIA, cross-checked with clinical benefit and safety signals.',
+                                            'Federated statistics in a trusted data space produce payer-reviewable evidence packs covering methods, assumptions, and sensitivities for value assessment and negotiation.',
+                                        ],
+                                        highlightsTitle: 'Core highlights',
+                                        highlightPills: ['RWD for HTA and payer value stories', 'Cost-outcome alignment across sources', 'Scenario and sensitivity libraries', 'Traceable processes for audit'],
+                                        demoEntry: {
+                                            enabled: false,
+                                            href: '',
+                                            routeKey: 'scenario3_reimbursement_hta',
+                                            buttonLabel: 'Open demo',
+                                            disabledLabel: 'Demo connection pending',
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                        partners: {
+                            title: 'Building a New Ecosystem for Medical Data',
+                            subtitle: 'We collaborate closely with top global medical institutions, pharmaceutical companies, research institutes, and regulatory bodies to unlock the value of data.',
+                            tabs: { providers: 'Data Providers', services: 'Data Service Partners', users: 'Data Users', regulators: 'Data Regulators' },
+                            providers: { 
+                                title: 'Data Providers',
+                                categories: [
+                                    { name: 'Data Centers', partners: ['Hainan "Three Medicines" Platform', 'National Health and Medical Big Data', 'Guangzhou Data Group', 'Lianren Health'] },
+                                    { name: 'Medical Institutions', partners: ['Ruijin Hainan Hospital', 'Huaxi Lecheng Hospital', 'Boao Super Hospital'] }
+                                ]
+                            },
+                            services: { 
+                                title: 'Data Service Partners',
+                                categories: [
+                                    { name: 'CRO Companies', partners: ['IQVIA', 'Tigermed'] },
+                                    { name: 'Legal & Compliance', partners: ['Beijing Zhonghengxin Law Firm', 'Beijing Gucheng Law Firm', 'Jingsh Law Firm'] },
+                                    { name: 'Data Governance', partners: ['Yidu Cloud', 'Guoxin Zhongjian', 'Neusoft Group'] },
+                                    { name: 'AI & Model Training', partners: ['Norges (Beijing)'] },
+                                    { name: 'Academic & Research', partners: ['Peking University', 'Tsinghua University'] }
+                                ]
+                            },
+                            users: { title: 'Pharmaceutical Companies', more: 'and 180+ other companies' },
+                            regulators: { title: 'Regulatory Bodies & Institutions' },
+                            cta: { title: 'Become Our Partner', subtitle: 'Join a vibrant ecosystem to collectively define the future of healthcare. We welcome more forward-thinking organizations to join us.', button: 'Contact Us' }
+                        },
+                        about: {
+                            title: 'About Us',
+                            subtitle: 'We are dedicated to breaking down data silos to build a trusted, compliant, and efficient medical data ecosystem, driving the development of healthcare in China and globally.',
+                            mission: {
+                                title: 'Our Mission & Vision',
+                                p1: 'Supported by the national strategy of the Hainan Free Trade Port, Hainan Boao Lecheng Digital Technology Development Co., Ltd. is tasked with building and operating the Lecheng Trusted Medical Data Space. We aim to solve the challenge of "hot concept, cold application" in the pharmaceutical industry\'s data utilization by innovating technology and regulations to reduce data circulation costs and increase the accessibility of high-quality, compliant data.',
+                                p2: 'Our vision is to become a leading global platform for real-world data applications. By focusing on the synergy of medical services, health insurance, and pharmaceutical administration, we aim to unlock the value of medical data, empower the high-quality development of the pharmaceutical industry, and ultimately benefit every patient.'
+                            },
+                            stats: {
+                                stat1: { value: '21+', label: 'Approved Drugs & Devices' },
+                                stat2: { value: '13+', label: 'Data Application Guidelines' },
+                                stat3: { value: '180+', label: 'Pharma Company Partners' },
+                                stat4: { value: '649', label: 'Integrated Datasets' }
+                            },
+                            timeline: {
+                                title: 'Our Journey',
+                                items: [
+                                    { year: '2013', title: 'Pilot Zone Established', description: 'The State Council officially established the Hainan Boao Lecheng International Medical Tourism Pilot Zone.' },
+                                    { year: '2019', title: 'Policy 2.0', description: 'Four national ministries jointly issued a plan to support Lecheng in piloting the application of real-world clinical data.' },
+                                    { year: '2020', title: 'First Breakthrough', description: 'The first medical device, a glaucoma drainage tube, was approved in China using Lecheng real-world data.' },
+                                    { year: '2024', title: 'Deepening Synergy', description: 'Hainan Province achieved an integrated data network and collaborated with the National Healthcare Security Administration to explore RWD for insurance access.' },
+                                    { year: '2025 & Beyond', title: 'Future Outlook', description: 'Construction of the trusted data space infrastructure begins, with the goal of full operation by 2027 to create a world-class medical data platform.' }
+                                ]
+                            },
+                            governance: {
+                                title: 'Professional Governance Structure',
+                                cards: [
+                                    { title: 'Regulatory Leadership', description: 'A leadership working group composed of regulatory departments provides overall direction, ensuring the platform\'s compliance and strategic development.' },
+                                    { title: 'Expert Support', description: 'We have dedicated teams for operations, data quality control, and technical support, along with an expert committee of top clinical, regulatory, and compliance specialists.' },
+                                    { title: 'Industry Application', description: 'We ensure every data application is medically rigorous, regulatorily compliant, and clinically practical to truly serve industrial development.' }
+                                ]
+                            }
+                        },
+                        footer: {
+                            title: 'Hainan Lecheng Trusted Medical Data Space',
+                            subtitle: 'Planned, constructed, and operated by Hainan Boao Lecheng Digital Technology Development Co., Ltd.',
+                            links: {
+                                quick: { title: 'Quick Links', home: 'Home', dataCatalog: 'Data Catalog', solutions: 'Solutions', partners: 'Partners' },
+                                legal: { title: 'Legal', privacy: 'Privacy Policy', terms: 'Terms of Service', security: 'Data Security Whitepaper' },
+                            },
+                            contact: {
+                                title: 'Contact Us',
+                                address: 'Address: Hainan Boao Lecheng International Medical Tourism Pilot Zone, Qionghai City, Hainan Province',
+                                email: 'Email: contact@lechengrws.com'
+                            },
+                            copyright: 'Hainan Boao Lecheng Digital Technology Development Co., Ltd. All Rights Reserved.'
+                        }
+                    }
+                },
+                
+                // Method to set the language
+                setLang(language) {
+                    this.lang = language;
+                    document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
+                    this.messages = [
+                        { role: 'bot', text: this.lang === 'zh' ? '您好！我是乐城医疗数据空间的AI助手，有什么可以帮助您的吗？' : 'Hello! I am the AI assistant for Lecheng Medical Data Space. How can I help you?' }
+                    ];
+                    // Reset filters on language change
+                    this.activeDomain = this.content[this.lang].dataCatalog.filters.domain.options[0];
+                    this.activeApp = this.content[this.lang].dataCatalog.filters.application.options[0];
+                    this.activeDisease = this.content[this.lang].dataCatalog.filters.disease.options[0];
+                    this.searchQuery = '';
+                },
+
+                // Method to send a user message in the chat
+                sendMessage() {
+                    if (!this.userInput.trim()) return;
+                    this.messages.push({ role: 'user', text: this.userInput });
+                    this.getBotResponse(this.userInput);
+                    this.userInput = '';
+                    this.$nextTick(() => { this.scrollToBottom(); });
+                },
+
+                // Simple logic for bot responses
+                getBotResponse(userMessage) {
+                    const lowerCaseMessage = userMessage.toLowerCase();
+                    let botReply = this.lang === 'zh' ? '感谢您的提问。我们的团队正在处理，请稍后。' : 'Thank you for your question. Our team is looking into it.';
+
+                    if (lowerCaseMessage.includes('你好') || lowerCaseMessage.includes('hello')) {
+                        botReply = this.lang === 'zh' ? '您好！有什么可以为您服务的吗？' : 'Hello! How can I assist you?';
+                    } else if (lowerCaseMessage.includes('解决') || lowerCaseMessage.includes('solution')) {
+                        botReply = this.lang === 'zh' 
+                            ? '「解决方案」页分为<strong class="font-semibold">应用场景PoC</strong>与<strong class="font-semibold">示范案例</strong>：前者说明总体理念、可信数据空间如何回应行业痛点及技术路径；后者为三个场景卡片与演示入口占位。点击<a href="#" @click.prevent="activePage = \'solutions\'; aiAssistantOpen = false;" class="text-blue-600 underline font-semibold">这里</a>打开。'
+                            : 'The <strong class="font-semibold">Solutions</strong> page has <strong class="font-semibold">PoC application scenarios</strong> and <strong class="font-semibold">demonstration cases</strong>: the first covers the narrative, how the trusted data space addresses industry pain points, and the technical path; the second lists three scenario cards with demo entry placeholders. Click <a href="#" @click.prevent="activePage = \'solutions\'; aiAssistantOpen = false;" class="text-blue-600 underline font-semibold">here</a> to open it.';
+                    } else if (lowerCaseMessage.includes('合作') || lowerCaseMessage.includes('partner')) {
+                        botReply = this.lang === 'zh' 
+                            ? '我们非常欢迎合作伙伴。您可以前往<a href="#" @click.prevent="activePage = \'partners\'; aiAssistantOpen = false;" class="text-blue-600 underline font-semibold">合作伙伴</a>页面了解更多信息，并与我们取得联系。'
+                            : 'We warmly welcome partners. You can visit our <a href="#" @click.prevent="activePage = \'partners\'; aiAssistantOpen = false;" class="text-blue-600 underline font-semibold">Partners</a> page for more information and to get in touch.';
+                    } else if (lowerCaseMessage.includes('数据') || lowerCaseMessage.includes('data')) {
+                        botReply = this.lang === 'zh' 
+                            ? '我们的资源目录汇集了高质量的医疗数据资源，含按数据类型与按区域地图筛选。您可以到<a href="#" @click.prevent="activePage = \'data-catalog\'; aiAssistantOpen = false;" class="text-blue-600 underline font-semibold">资源目录</a>进行探索。'
+                            : 'Our Data Catalog aggregates high-quality medical data resources with region map and data-type filters. You can explore it on the <a href="#" @click.prevent="activePage = \'data-catalog\'; aiAssistantOpen = false;" class="text-blue-600 underline font-semibold">Data Catalog</a> page.';
+                    }
+
+                    // Simulate a delay for the bot's response
+                    setTimeout(() => {
+                        this.messages.push({ role: 'bot', text: botReply });
+                        this.$nextTick(() => { this.scrollToBottom(); });
+                    }, 1000);
+                },
+
+                // Auto-scroll the chatbox to the latest message
+                scrollToBottom() {
+                    if (this.$refs.chatbox) {
+                        this.$refs.chatbox.scrollTop = this.$refs.chatbox.scrollHeight;
+                    }
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial call to render Lucide icons on the default page
+            lucide.createIcons();
+            
+            // Dynamically set the copyright year
+            const copyrightYearEl = document.getElementById('copyright-year');
+            if (copyrightYearEl) {
+                copyrightYearEl.textContent = new Date().getFullYear();
+            }
+
+            // --- Three.js Particle Animation Script ---
+            const heroSection = document.querySelector('.hero-gradient');
+            if (heroSection) {
+                let scene, camera, renderer, particles;
+                let mouseX = 0, mouseY = 0;
+                let windowHalfX = window.innerWidth / 2;
+                let windowHalfY = window.innerHeight / 2;
+                
+                function init() {
+                    const canvas = document.getElementById('particle-canvas');
+                    
+                    // Set up the camera
+                    camera = new THREE.PerspectiveCamera(75, heroSection.offsetWidth / heroSection.offsetHeight, 1, 10000);
+                    camera.position.z = 1000;
+
+                    // Set up the scene
+                    scene = new THREE.Scene();
+
+                    // Set up the renderer
+                    renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
+                    renderer.setSize(heroSection.offsetWidth, heroSection.offsetHeight);
+                    renderer.setClearColor(0x000000, 0); // Transparent background
+
+                    // Create particles
+                    const particlesCount = 5000;
+                    const positions = new Float32Array(particlesCount * 3);
+                    const colors = new Float32Array(particlesCount * 3);
+                    const color = new THREE.Color();
+
+                    for (let i = 0; i < particlesCount; i++) {
+                        const x = Math.random() * 2000 - 1000;
+                        const y = Math.random() * 2000 - 1000;
+                        const z = Math.random() * 2000 - 1000;
+
+                        positions[i * 3] = x;
+                        positions[i * 3 + 1] = y;
+                        positions[i * 3 + 2] = z;
+                        
+                        // Set particle color (shades of white and light blue)
+                        color.setHSL(0.6, 0.9, Math.random() * 0.5 + 0.5);
+                        colors[i * 3] = color.r;
+                        colors[i * 3 + 1] = color.g;
+                        colors[i * 3 + 2] = color.b;
+                    }
+
+                    // Create buffer geometry
+                    const geometry = new THREE.BufferGeometry();
+                    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+                    // Create material
+                    const material = new THREE.PointsMaterial({
+                        size: 2,
+                        vertexColors: true,
+                        blending: THREE.AdditiveBlending,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+
+                    particles = new THREE.Points(geometry, material);
+                    scene.add(particles);
+
+                    // Add event listeners
+                    document.addEventListener('mousemove', onDocumentMouseMove, false);
+                    window.addEventListener('resize', onWindowResize, false);
+                }
+
+                function onWindowResize() {
+                    windowHalfX = window.innerWidth / 2;
+                    windowHalfY = window.innerHeight / 2;
+                    camera.aspect = heroSection.offsetWidth / heroSection.offsetHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(heroSection.offsetWidth, heroSection.offsetHeight);
+                }
+
+                function onDocumentMouseMove(event) {
+                    mouseX = event.clientX - windowHalfX;
+                    mouseY = event.clientY - windowHalfY;
+                }
+
+                function animate() {
+                    requestAnimationFrame(animate);
+                    render();
+                }
+
+                function render() {
+                    const time = Date.now() * 0.00005;
+
+                    // Move camera based on mouse position for a parallax effect
+                    camera.position.x += (mouseX - camera.position.x) * 0.05;
+                    camera.position.y += (-mouseY - camera.position.y) * 0.05;
+                    camera.lookAt(scene.position);
+                    
+                    // Animate particles rotation
+                    particles.rotation.x = time * 0.2;
+                    particles.rotation.y = time * 0.4;
+
+                    renderer.render(scene, camera);
+                }
+
+                init();
+                animate();
+            }
+        });
+    </script>
+</body>
+</html>
+

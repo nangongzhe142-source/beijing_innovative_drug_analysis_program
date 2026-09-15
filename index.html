@@ -1,0 +1,1101 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>国际创新药械"三医协同"可信数据空间</title>
+
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!--
+    ECharts 5 主库。注意：echarts@5 已不再随包提供 china.js，
+    因此地图数据由下方脚本中的 loadChinaMap() 异步从多个备用源加载并 registerMap。
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* 修复 Tailwind 工具类（如 .flex）覆盖浏览器默认 [hidden] { display:none } 的问题 */
+    [hidden] { display: none !important; }
+
+    body {
+      font-family: "Microsoft YaHei", sans-serif;
+      background: linear-gradient(180deg, #f4f8ff 0%, #eef5ff 100%);
+      overflow-x: hidden;
+    }
+
+    .glass-card {
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(59,130,246,0.15);
+      box-shadow:
+        0 4px 20px rgba(30,64,175,0.08),
+        inset 0 1px 0 rgba(255,255,255,0.8);
+    }
+
+    .title-gradient {
+      background: linear-gradient(90deg, #1d4ed8, #2563eb, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .wave-bg {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      z-index: -1;
+      opacity: 0.35;
+    }
+
+    .resource-row {
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      border-left: 3px solid transparent;
+    }
+
+    .resource-row:hover {
+      background: #eff6ff;
+    }
+
+    .resource-row.active {
+      background: linear-gradient(90deg, #dbeafe, #eff6ff);
+      border-left-color: #2563eb;
+    }
+
+    .floating {
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0px); }
+      50%     { transform: translateY(-5px); }
+    }
+
+    .stats-card:hover {
+      transform: translateY(-4px);
+      transition: 0.25s;
+    }
+
+    /* 数据类型筛选胶囊 */
+    .type-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid #e0e7ff;
+      background: #f8fafc;
+      color: #475569;
+      user-select: none;
+    }
+    .type-chip:hover {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-color: #bfdbfe;
+    }
+    .type-chip.active {
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      color: #fff;
+      border-color: #1d4ed8;
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
+    }
+    .type-chip .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.9;
+    }
+
+    /* 数据类型彩色小标签 */
+    .type-tag {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      margin: 2px 4px 2px 0;
+      border: 1px solid;
+      white-space: nowrap;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    /* 嵌入式表格滚动条 */
+    .embedded-table-scroll::-webkit-scrollbar { width: 6px; }
+    .embedded-table-scroll::-webkit-scrollbar-thumb {
+      background: #bfdbfe;
+      border-radius: 20px;
+    }
+
+    /* 综合排序 tab */
+    .sort-tab {
+      padding: 6px 4px 10px 4px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+      background: transparent;
+    }
+    .sort-tab:hover { color: #2563eb; }
+    .sort-tab.active {
+      color: #1d4ed8;
+      border-bottom-color: #1d4ed8;
+    }
+
+    /* 资源卡片 */
+    .resource-card {
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      border: 1px solid #e0ecff;
+    }
+    .resource-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.15);
+      border-color: #93c5fd;
+    }
+    .resource-card.active {
+      border-color: #2563eb;
+      box-shadow: 0 8px 24px rgba(37, 99, 235, 0.25);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部导航 -->
+  <header class="w-full bg-white/90 backdrop-blur-md border-b border-blue-100 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-200">
+          <i data-lucide="database" class="w-6 h-6 text-white"></i>
+        </div>
+
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800">
+            国际创新药械"三医协同"可信数据空间
+          </h1>
+          <p class="text-sm text-slate-500">
+            真实世界数据跨域流通平台
+          </p>
+        </div>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-10 text-slate-700 font-medium">
+        <a href="#" class="hover:text-blue-600">首页</a>
+        <a href="#" class="text-blue-600 font-bold border-b-2 border-blue-600 pb-1">数据目录</a>
+        <a href="#" class="hover:text-blue-600">数据市场</a>
+        <a href="#" class="hover:text-blue-600">解决方案</a>
+        <a href="#" class="hover:text-blue-600">合作伙伴</a>
+        <a href="#" class="hover:text-blue-600">关于我们</a>
+      </nav>
+    </div>
+  </header>
+
+
+  <!-- 主体 -->
+  <main class="max-w-7xl mx-auto px-6 py-10">
+
+    <!-- 标题 -->
+    <section class="text-center mb-10">
+      <h2 class="text-6xl font-black title-gradient mb-5 floating">
+        数据资源目录
+      </h2>
+      <p class="text-2xl text-slate-600">
+        乐城可信数据空间连接的全国医疗数据资源分布
+      </p>
+    </section>
+
+
+    <!-- 数据概览 -->
+    <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+
+      <div class="glass-card stats-card rounded-3xl p-8 flex items-center justify-between">
+        <div>
+          <p class="text-slate-500 text-lg mb-2">已对接城市</p>
+          <h3 class="text-5xl font-black text-blue-600" id="statRegions">12</h3>
+        </div>
+        <div class="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center">
+          <i data-lucide="map-pinned" class="w-8 h-8 text-blue-600"></i>
+        </div>
+      </div>
+
+      <div class="glass-card stats-card rounded-3xl p-8 flex items-center justify-between">
+        <div>
+          <p class="text-slate-500 text-lg mb-2">数据资源类型</p>
+          <h3 class="text-5xl font-black text-blue-600">5</h3>
+        </div>
+        <div class="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center">
+          <i data-lucide="database-zap" class="w-8 h-8 text-blue-600"></i>
+        </div>
+      </div>
+
+      <div class="glass-card stats-card rounded-3xl p-8 flex items-center justify-between">
+        <div>
+          <p class="text-slate-500 text-lg mb-2">可用数据资源</p>
+          <h3 class="text-5xl font-black text-blue-600">128+</h3>
+        </div>
+        <div class="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center">
+          <i data-lucide="network" class="w-8 h-8 text-blue-600"></i>
+        </div>
+      </div>
+
+      <div class="glass-card stats-card rounded-3xl p-8 flex items-center justify-between">
+        <div>
+          <p class="text-slate-500 text-lg mb-2">覆盖人口</p>
+          <h3 class="text-5xl font-black text-blue-600">3.2亿+</h3>
+        </div>
+        <div class="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center">
+          <i data-lucide="users" class="w-8 h-8 text-blue-600"></i>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- 筛选模块：搜索 + 按数据类型 + 按区域(地图+表格) -->
+    <section class="glass-card rounded-3xl p-6 mb-8">
+
+      <div class="flex flex-col md:flex-row md:items-center gap-4 mb-6">
+
+        <div class="relative flex-1">
+          <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400"></i>
+          <input
+            id="searchInput"
+            type="text"
+            oninput="onSearchInput(event)"
+            placeholder="按地区、资源名称或数据类型搜索..."
+            class="search-input w-full pl-12 pr-4 py-3 rounded-2xl border border-blue-100 bg-white/80 text-slate-700 placeholder-slate-400" />
+        </div>
+
+        <div class="flex gap-3">
+          <button onclick="resetFilters()"
+            class="px-5 py-3 rounded-2xl border border-blue-200 text-blue-700 font-semibold hover:bg-blue-50 transition flex items-center gap-2">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            重置筛选
+          </button>
+
+          <button onclick="exportData()"
+            class="px-5 py-3 rounded-2xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition shadow-lg shadow-blue-200 flex items-center gap-2">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            导出 CSV
+          </button>
+        </div>
+      </div>
+
+
+      <!-- 按数据类型 -->
+      <div class="mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <i data-lucide="filter" class="w-4 h-4 text-blue-600"></i>
+          <span class="text-sm font-bold text-slate-700">按数据类型</span>
+          <span class="text-xs text-slate-400">点击筛选地图与列表</span>
+        </div>
+
+        <div id="typeFilters" class="flex flex-wrap gap-2"></div>
+      </div>
+
+
+      <!-- 按区域：嵌入式地图 + 右侧地区数据类型表格（页面唯一地图模块） -->
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <i data-lucide="map-pinned" class="w-4 h-4 text-blue-600"></i>
+          <span class="text-sm font-bold text-slate-700">按区域</span>
+          <span class="text-xs text-slate-400">点击地图省份或资源点；与右侧表格联动</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+
+          <!-- 内嵌式中国地图（页面唯一地图） -->
+          <div class="md:col-span-3 relative rounded-2xl border border-blue-100 bg-white/70 p-3">
+            <div id="regionMap" class="w-full" style="height:420px;min-height:360px;"></div>
+
+            <div id="regionMapErrorTip" hidden
+              class="absolute inset-3 rounded-2xl bg-amber-50/95 border border-amber-200 text-amber-700 text-sm flex flex-col items-center justify-center p-4 text-center gap-1">
+              <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+              <div>地图资源加载失败，请检查网络或稍后刷新</div>
+              <div class="text-xs text-amber-600">已尝试 jsDelivr / unpkg / fastly / Aliyun 多个备用源</div>
+            </div>
+          </div>
+
+          <!-- 右侧地区数据类型表格 -->
+          <div class="md:col-span-2 rounded-2xl border border-blue-100 overflow-hidden bg-white/80 flex flex-col">
+            <div class="px-4 py-2 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-900 text-sm font-bold flex items-center justify-between">
+              <span>已对接数据资源</span>
+              <span class="text-xs font-semibold text-blue-700">
+                <span id="embeddedRegionCount">0</span> 市
+              </span>
+            </div>
+
+            <div class="embedded-table-scroll overflow-y-auto" style="max-height:380px">
+              <table class="w-full text-left text-sm">
+                <thead class="sticky top-0 bg-blue-50 z-10">
+                  <tr>
+                    <th class="px-4 py-2 text-blue-900 font-semibold">区域/城市</th>
+                    <th class="px-4 py-2 text-blue-900 font-semibold">对接数据资源类型</th>
+                  </tr>
+                </thead>
+                <tbody id="embeddedRegionTable"></tbody>
+              </table>
+            </div>
+
+            <div id="embeddedEmptyTip" hidden class="text-center py-6 text-slate-400 text-xs">
+              暂无符合筛选条件的地区
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- 综合排序：资源卡片栅格（保留原网页综合排序模块） -->
+    <section class="glass-card rounded-3xl p-6">
+
+      <div class="flex items-center justify-between mb-6 border-b border-blue-100 flex-wrap gap-3">
+        <div class="flex items-center gap-6">
+          <button id="sortTabComprehensive" type="button" class="sort-tab active" onclick="selectSortMode('comprehensive')">
+            综合排序
+          </button>
+          <button id="sortTabViews" type="button" class="sort-tab" onclick="selectSortMode('views')">
+            浏览量
+          </button>
+        </div>
+
+        <div class="text-sm text-slate-500 pb-3">
+          共 <span id="resourceCardCount" class="text-blue-600 font-bold">0</span> 个数据资源
+        </div>
+      </div>
+
+      <div id="resourceCardGrid" class="grid grid-cols-1 md:grid-cols-2 gap-5"></div>
+
+      <div id="cardEmptyTip" hidden class="text-center py-12 text-slate-400">
+        <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3"></i>
+        <p>暂无符合筛选条件的数据资源</p>
+      </div>
+    </section>
+  </main>
+
+
+  <!-- 底部波浪 -->
+  <svg class="wave-bg" viewBox="0 0 1440 320">
+    <path fill="#60a5fa" fill-opacity="0.4"
+      d="M0,224L80,197.3C160,171,320,117,480,117.3C640,117,800,171,960,181.3C1120,192,1280,160,1360,144L1440,128L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"></path>
+  </svg>
+
+
+<script>
+  /* === 常量：数据类型 ===
+   * 集中管理避免魔术字符串。
+   */
+  const DATA_TYPE = {
+    MEDICAL_INSTITUTION: '医疗机构数据',
+    HEALTH_COMMISSION:   '卫健数据',
+    MEDICAL_INSURANCE:   '医保数据',
+    DRUG_REGULATION:     '药监数据',
+    DISEASE_CONTROL:     '疾控数据'
+  };
+
+  const ALL_TYPES = '全部';
+  const DATA_TYPE_LIST = Object.values(DATA_TYPE);
+
+  /* 数据类型彩色标签配色：浅色背景，整体保持蓝白科技风 */
+  const TYPE_STYLES = {
+    [DATA_TYPE.MEDICAL_INSTITUTION]: { bg: '#ede9fe', text: '#6d28d9', border: '#c4b5fd' },
+    [DATA_TYPE.HEALTH_COMMISSION]:   { bg: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' },
+    [DATA_TYPE.MEDICAL_INSURANCE]:   { bg: '#dcfce7', text: '#166534', border: '#86efac' },
+    [DATA_TYPE.DRUG_REGULATION]:     { bg: '#fef3c7', text: '#b45309', border: '#fcd34d' },
+    [DATA_TYPE.DISEASE_CONTROL]:     { bg: '#fee2e2', text: '#b91c1c', border: '#fca5a5' }
+  };
+
+  /* Aliyun GeoJSON 全名 -> 短名映射，兼容 echarts china 短名 */
+  const PROVINCE_NAME_MAP = {
+    '北京市': '北京', '天津市': '天津', '上海市': '上海', '重庆市': '重庆',
+    '河北省': '河北', '山西省': '山西', '辽宁省': '辽宁', '吉林省': '吉林',
+    '黑龙江省': '黑龙江', '江苏省': '江苏', '浙江省': '浙江', '安徽省': '安徽',
+    '福建省': '福建', '江西省': '江西', '山东省': '山东', '河南省': '河南',
+    '湖北省': '湖北', '湖南省': '湖南', '广东省': '广东', '海南省': '海南',
+    '四川省': '四川', '贵州省': '贵州', '云南省': '云南', '陕西省': '陕西',
+    '甘肃省': '甘肃', '青海省': '青海', '台湾省': '台湾',
+    '内蒙古自治区': '内蒙古', '广西壮族自治区': '广西', '西藏自治区': '西藏',
+    '宁夏回族自治区': '宁夏', '新疆维吾尔自治区': '新疆',
+    '香港特别行政区': '香港', '澳门特别行政区': '澳门'
+  };
+
+
+  /* === 结构化数据源（地图 / 表格 / 卡片 / 搜索 / CSV 导出共用） ===
+   * 注：types 组合可根据真实业务数据调整。
+   * coordinate 为 [经度, 纬度]，用于 ECharts effectScatter 资源点。
+   */
+  const regionResources = [
+    { region: '北京', displayName: '北京市', province: '北京', types: [DATA_TYPE.HEALTH_COMMISSION], resources: ['全民健康信息平台数据'], coordinate: [116.40, 39.90] },
+    { region: '深圳', displayName: '深圳市', province: '广东', types: [DATA_TYPE.MEDICAL_INSTITUTION], resources: ['北京大学深圳医院'], coordinate: [114.05, 22.55] },
+    { region: '重庆', displayName: '重庆市', province: '重庆', types: [DATA_TYPE.HEALTH_COMMISSION], resources: ['全民健康信息平台数据'], coordinate: [106.55, 29.56] },
+    { region: '江苏', displayName: '江苏省', province: '江苏', types: [DATA_TYPE.HEALTH_COMMISSION], resources: ['国家健康大数据（东部）中心'], coordinate: [118.78, 32.04] },
+    { region: '青岛', displayName: '青岛市', province: '山东', types: [DATA_TYPE.HEALTH_COMMISSION], resources: ['全民健康信息平台数据'], coordinate: [120.38, 36.07] },
+    { region: '福建', displayName: '福建省', province: '福建', types: [DATA_TYPE.MEDICAL_INSURANCE, DATA_TYPE.HEALTH_COMMISSION, DATA_TYPE.DRUG_REGULATION], resources: ['三医数据资源'], coordinate: [119.30, 26.08] },
+    { region: '海南', displayName: '海南省', province: '海南', types: [DATA_TYPE.HEALTH_COMMISSION, DATA_TYPE.MEDICAL_INSURANCE, DATA_TYPE.DRUG_REGULATION], resources: ['三医数据资源'], coordinate: [110.35, 20.02] },
+    { region: '上海', displayName: '上海市', province: '上海', types: [DATA_TYPE.HEALTH_COMMISSION, DATA_TYPE.MEDICAL_INSTITUTION], resources: ['上海市卫生健康委', '上海申康临床研究队列', '上海市卫健委'], coordinate: [121.47, 31.23] },
+    { region: '宜昌', displayName: '宜昌市', province: '湖北', types: [DATA_TYPE.HEALTH_COMMISSION], resources: ['全民健康信息平台数据'], coordinate: [111.29, 30.69] },
+    { region: '天津', displayName: '天津市', province: '天津', types: [DATA_TYPE.HEALTH_COMMISSION], resources: ['全民健康信息平台数据'], coordinate: [117.20, 39.13] },
+    { region: '厦门', displayName: '厦门市', province: '福建', types: [DATA_TYPE.HEALTH_COMMISSION], resources: ['全民健康信息平台数据'], coordinate: [118.10, 24.46] },
+    { region: '南京', displayName: '南京市', province: '江苏', types: [DATA_TYPE.HEALTH_COMMISSION], resources: ['全民健康信息平台数据'], coordinate: [118.78, 32.04] },
+    { region: '温州', displayName: '温州市', province: '浙江', types: [DATA_TYPE.HEALTH_COMMISSION], resources: ['全民健康信息平台数据'], coordinate: [120.65, 28.01] },
+    { region: '宁波', displayName: '宁波市', province: '浙江', types: [DATA_TYPE.HEALTH_COMMISSION, DATA_TYPE.MEDICAL_INSURANCE], resources: ['全民健康信息平台数据'], coordinate: [121.55, 29.88] },
+    { region: '广州', displayName: '广州市', province: '广东', types: [DATA_TYPE.HEALTH_COMMISSION], resources: ['全民健康信息平台数据'], coordinate: [113.27, 23.13] },
+    { region: '山东', displayName: '山东省', province: '山东', types: [DATA_TYPE.HEALTH_COMMISSION], resources: ['国家健康大数据（北方）中心'], coordinate: [117.00, 36.65] }
+  ];
+
+
+  /* === 状态 === */
+  let selectedDataType = ALL_TYPES;
+  let selectedRegionName = null;
+  let highlightedRegions = []; // 列表 / 地图联动高亮（支持省份多选）
+  let searchKeyword = '';
+  let sortMode = 'comprehensive'; // 'comprehensive' | 'views'
+
+  let chart = null;
+  let mapAvailable = false;
+
+
+  /* === 数据筛选 === */
+  function getFilteredRegionResources() {
+    const keyword = searchKeyword.trim().toLowerCase();
+
+    return regionResources.filter(item => {
+      const matchType = selectedDataType === ALL_TYPES || item.types.includes(selectedDataType);
+      if (!matchType) return false;
+
+      if (!keyword) return true;
+
+      const haystack = [
+        item.region,
+        item.displayName,
+        item.province,
+        ...item.types,
+        ...item.resources
+      ].join(' ').toLowerCase();
+
+      return haystack.includes(keyword);
+    });
+  }
+
+  function getSortedFilteredResources() {
+    const items = getFilteredRegionResources();
+    if (sortMode === 'views') {
+      return items.slice().sort((a, b) =>
+        (b.resources.length - a.resources.length) ||
+        (b.types.length - a.types.length) ||
+        a.displayName.localeCompare(b.displayName, 'zh-CN')
+      );
+    }
+    return items.slice().sort((a, b) => a.displayName.localeCompare(b.displayName, 'zh-CN'));
+  }
+
+  function aggregateByProvince(items) {
+    const provinceMap = new Map();
+    items.forEach(item => {
+      if (!provinceMap.has(item.province)) {
+        provinceMap.set(item.province, {
+          province: item.province,
+          regions: [],
+          types: new Set(),
+          resources: []
+        });
+      }
+      const entry = provinceMap.get(item.province);
+      entry.regions.push(item);
+      item.types.forEach(t => entry.types.add(t));
+      item.resources.forEach(r => entry.resources.push(r));
+    });
+    return provinceMap;
+  }
+
+
+  /* === 渲染：数据类型筛选胶囊 === */
+  function renderTypeFilters() {
+    const container = document.getElementById('typeFilters');
+    if (!container) return;
+    const types = [ALL_TYPES, ...DATA_TYPE_LIST];
+
+    container.innerHTML = types.map(type => {
+      const isActive = type === selectedDataType;
+      const style = TYPE_STYLES[type];
+      const dotColor = isActive
+        ? '#ffffff'
+        : (style ? style.text : '#3b82f6');
+
+      return `
+        <button type="button"
+          class="type-chip ${isActive ? 'active' : ''}"
+          onclick="selectDataType('${type}')">
+          <span class="dot" style="background:${dotColor}"></span>
+          <span>${type}</span>
+        </button>
+      `;
+    }).join('');
+  }
+  function renderDataTypeFilters() { renderTypeFilters(); }
+
+
+  /* === 渲染：嵌入式按区域面板的右侧表格 === */
+  function renderEmbeddedRegionTable() {
+    const filteredRegionResources = getFilteredRegionResources();
+
+    const tbody = document.getElementById('embeddedRegionTable');
+    const emptyTip = document.getElementById('embeddedEmptyTip');
+    const countEl = document.getElementById('embeddedRegionCount');
+    if (!tbody) return;
+
+    countEl.textContent = filteredRegionResources.length;
+
+    if (filteredRegionResources.length === 0) {
+      tbody.innerHTML = '';
+      if (emptyTip) emptyTip.hidden = false;
+      return;
+    }
+    if (emptyTip) emptyTip.hidden = true;
+
+    tbody.innerHTML = filteredRegionResources.map(item => {
+      const isActive = highlightedRegions.includes(item.region);
+      const tagsHtml = item.types.map(buildTypeTagHtml).join('');
+      return `
+        <tr class="resource-row border-b border-blue-50 ${isActive ? 'active' : ''}"
+            data-region="${item.region}"
+            onclick="selectRegion('${item.region}')">
+          <td class="px-4 py-2 align-top font-semibold text-blue-700 whitespace-nowrap">
+            ${item.displayName}
+          </td>
+          <td class="px-4 py-2 align-top">
+            <div class="flex flex-wrap">${tagsHtml}</div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    if (highlightedRegions.length > 0) {
+      const firstActive = tbody.querySelector('.resource-row.active');
+      if (firstActive && typeof firstActive.scrollIntoView === 'function') {
+        firstActive.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }
+
+
+  /* === 渲染：综合排序卡片栅格 === */
+  function renderResourceCards() {
+    const items = getSortedFilteredResources();
+
+    const grid = document.getElementById('resourceCardGrid');
+    const empty = document.getElementById('cardEmptyTip');
+    const countEl = document.getElementById('resourceCardCount');
+    if (!grid) return;
+
+    countEl.textContent = items.length;
+
+    if (items.length === 0) {
+      grid.innerHTML = '';
+      if (empty) empty.hidden = false;
+      return;
+    }
+    if (empty) empty.hidden = true;
+
+    grid.innerHTML = items.map(buildResourceCardHtml).join('');
+  }
+
+  function buildResourceCardHtml(item) {
+    const isActive = highlightedRegions.includes(item.region);
+    const tagsHtml = item.types.map(buildTypeTagHtml).join('');
+    const primary = item.resources[0] || '医疗数据资源';
+    const title = `${item.displayName}・${primary}`;
+    const moreResources = item.resources.length > 1
+      ? `等 ${item.resources.length} 项资源`
+      : '';
+    const description = `连接 ${item.displayName} 可信医疗数据节点，覆盖 ${item.types.length} 类数据资源${moreResources ? '，' + moreResources : ''}。`;
+
+    return `
+      <div class="resource-card rounded-2xl bg-white p-5 ${isActive ? 'active' : ''}"
+           data-region="${item.region}"
+           onclick="selectRegion('${item.region}')">
+        <div class="flex items-start justify-between mb-3 gap-3">
+          <h4 class="text-base md:text-lg font-bold text-slate-800 leading-snug">${title}</h4>
+          <span class="shrink-0 text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 font-semibold">
+            ${item.province}
+          </span>
+        </div>
+
+        <div class="flex flex-wrap mb-3">${tagsHtml}</div>
+
+        <p class="text-sm text-slate-600 mb-4 leading-relaxed">
+          ${description}
+        </p>
+
+        <div class="border-t border-blue-50 pt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+          <div>
+            <span class="text-slate-400">覆盖范围：</span>
+            <span class="text-slate-700 font-medium">${item.displayName}</span>
+          </div>
+          <div>
+            <span class="text-slate-400">资源数量：</span>
+            <span class="text-slate-700 font-medium">${item.resources.length} 项</span>
+          </div>
+          <div class="col-span-2">
+            <span class="text-slate-400">数据类型：</span>
+            <span class="text-slate-700 font-medium">${item.types.join('、')}</span>
+          </div>
+          <div class="col-span-2">
+            <span class="text-slate-400">资源名称：</span>
+            <span class="text-slate-700 font-medium">${item.resources.join('、')}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+
+  function buildTypeTagHtml(type) {
+    const style = TYPE_STYLES[type] || { bg: '#e2e8f0', text: '#334155', border: '#cbd5e1' };
+    return `<span class="type-tag" style="background:${style.bg};color:${style.text};border-color:${style.border}">${type}</span>`;
+  }
+
+
+  /* === 渲染：地图（按区域，页面唯一） === */
+  function buildMapOption() {
+    const filteredRegionResources = getFilteredRegionResources();
+    const provinceAgg = aggregateByProvince(filteredRegionResources);
+
+    const mapData = Array.from(provinceAgg.values()).map(p => ({
+      name: p.province,
+      value: 60 + p.regions.length * 10,
+      types: Array.from(p.types),
+      regions: p.regions.map(r => r.displayName),
+      resources: Array.from(new Set(p.resources))
+    }));
+
+    const scatterData = filteredRegionResources.map(r => {
+      const isActive = highlightedRegions.includes(r.region);
+      return {
+        name: r.region,
+        value: [r.coordinate[0], r.coordinate[1], 100],
+        region: r,
+        symbolSize: isActive ? 16 : 8,
+        itemStyle: {
+          color: isActive ? '#1d4ed8' : '#2563eb',
+          shadowBlur: isActive ? 24 : 14,
+          shadowColor: '#3b82f6'
+        }
+      };
+    });
+
+    return {
+      backgroundColor: 'transparent',
+
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: 'rgba(255,255,255,0.96)',
+        borderColor: '#bfdbfe',
+        textStyle: { color: '#0f172a' },
+        formatter: function(params) {
+          if (params.seriesType === 'effectScatter' && params.data && params.data.region) {
+            const r = params.data.region;
+            const tagsHtml = r.types.map(t => {
+              const s = TYPE_STYLES[t] || { bg:'#e2e8f0', text:'#334155', border:'#cbd5e1' };
+              return `<span style="display:inline-block;padding:1px 7px;margin:2px 3px 0 0;border-radius:6px;font-size:11px;background:${s.bg};color:${s.text};border:1px solid ${s.border}">${t}</span>`;
+            }).join('');
+            return `
+              <div style="padding:6px 8px;min-width:180px">
+                <div style="font-size:13px;font-weight:bold;color:#1d4ed8;margin-bottom:4px">${r.displayName}</div>
+                <div style="font-size:11px;color:#64748b;margin-bottom:2px">数据类型</div>
+                <div style="margin-bottom:4px">${tagsHtml}</div>
+                <div style="font-size:11px;color:#64748b;">资源：${r.resources.join('、')}</div>
+              </div>
+            `;
+          }
+          if (params.seriesType === 'map' && params.data && params.data.types) {
+            const d = params.data;
+            const tagsHtml = d.types.map(t => {
+              const s = TYPE_STYLES[t] || { bg:'#e2e8f0', text:'#334155', border:'#cbd5e1' };
+              return `<span style="display:inline-block;padding:1px 7px;margin:2px 3px 0 0;border-radius:6px;font-size:11px;background:${s.bg};color:${s.text};border:1px solid ${s.border}">${t}</span>`;
+            }).join('');
+            return `
+              <div style="padding:6px 8px;min-width:200px">
+                <div style="font-size:13px;font-weight:bold;color:#1d4ed8;margin-bottom:4px">${params.name}</div>
+                <div style="font-size:11px;color:#64748b;margin-bottom:2px">已对接城市（${d.regions.length}）</div>
+                <div style="font-size:11px;color:#0f172a;margin-bottom:4px">${d.regions.join('、')}</div>
+                <div style="font-size:11px;color:#64748b;margin-bottom:2px">数据类型</div>
+                <div>${tagsHtml}</div>
+              </div>
+            `;
+          }
+          return `
+            <div style="padding:4px 8px;font-size:12px">
+              <strong>${params.name}</strong>
+              <span style="color:#64748b;margin-left:6px">暂未接入</span>
+            </div>
+          `;
+        }
+      },
+
+      visualMap: {
+        min: 50, max: 120, show: false,
+        inRange: { color: ['#bfdbfe', '#60a5fa', '#1d4ed8'] }
+      },
+
+      geo: {
+        map: 'china',
+        roam: true,
+        zoom: 1.1,
+        scaleLimit: { min: 0.8, max: 2.5 },
+        label: { show: false },
+        itemStyle: {
+          areaColor: '#eff6ff',
+          borderColor: '#93c5fd',
+          borderWidth: 0.8
+        },
+        emphasis: {
+          label: { show: true, color: '#1d4ed8', fontWeight: 'bold', fontSize: 11 },
+          itemStyle: { areaColor: '#60a5fa' }
+        }
+      },
+
+      series: [
+        {
+          name: '已合作区域',
+          type: 'map',
+          map: 'china',
+          geoIndex: 0,
+          data: mapData,
+          label: { show: false },
+          emphasis: {
+            label: { show: true, color: '#fff', fontWeight: 'bold', fontSize: 11 },
+            itemStyle: { areaColor: '#2563eb' }
+          }
+        },
+        {
+          name: '资源点',
+          type: 'effectScatter',
+          coordinateSystem: 'geo',
+          rippleEffect: { scale: 4, brushType: 'stroke' },
+          symbolSize: 8,
+          itemStyle: { color: '#2563eb', shadowBlur: 14, shadowColor: '#3b82f6' },
+          data: scatterData,
+          z: 5
+        }
+      ]
+    };
+  }
+
+  function updateMap() {
+    if (!chart || !mapAvailable) return;
+    try {
+      chart.setOption(buildMapOption(), { notMerge: true });
+    } catch (e) {
+      console.error('[Map] setOption failed:', e);
+    }
+  }
+  function renderEmbeddedRegionMap() { updateMap(); }
+
+
+  /* === 交互函数 === */
+  function selectType(type) {
+    selectedDataType = type;
+    selectedRegionName = null;
+    highlightedRegions = [];
+    renderAll();
+  }
+  function selectDataType(type) { selectType(type); }
+
+  function selectRegion(regionName) {
+    const isAlreadySingleSelected =
+      highlightedRegions.length === 1 && highlightedRegions[0] === regionName;
+    if (isAlreadySingleSelected) {
+      highlightedRegions = [];
+      selectedRegionName = null;
+    } else {
+      highlightedRegions = [regionName];
+      selectedRegionName = regionName;
+    }
+    renderEmbeddedRegionTable();
+    renderResourceCards();
+    updateMap();
+  }
+
+  function selectProvince(provinceName) {
+    const inProvince = regionResources
+      .filter(r => r.province === provinceName)
+      .map(r => r.region);
+    if (inProvince.length === 0) return;
+
+    const sameSelection =
+      highlightedRegions.length === inProvince.length &&
+      inProvince.every(r => highlightedRegions.includes(r));
+
+    if (sameSelection) {
+      highlightedRegions = [];
+      selectedRegionName = null;
+    } else {
+      highlightedRegions = inProvince;
+      selectedRegionName = inProvince[0];
+    }
+
+    renderEmbeddedRegionTable();
+    renderResourceCards();
+    updateMap();
+  }
+
+  function selectSortMode(mode) {
+    sortMode = mode;
+    document.getElementById('sortTabComprehensive').classList.toggle('active', mode === 'comprehensive');
+    document.getElementById('sortTabViews').classList.toggle('active', mode === 'views');
+    renderResourceCards();
+  }
+
+  function resetFilters() {
+    selectedDataType = ALL_TYPES;
+    selectedRegionName = null;
+    highlightedRegions = [];
+    searchKeyword = '';
+    const input = document.getElementById('searchInput');
+    if (input) input.value = '';
+    renderAll();
+  }
+
+  function onSearchInput(event) {
+    searchKeyword = event.target.value || '';
+    renderAll();
+  }
+
+  function exportData() {
+    const items = getFilteredRegionResources();
+    const header = '区域/城市,所属省份,对接数据类型,资源名称';
+    const rows = items.map(r =>
+      [
+        `"${r.displayName}"`,
+        `"${r.province}"`,
+        `"${r.types.join('、')}"`,
+        `"${r.resources.join('、')}"`
+      ].join(',')
+    );
+    const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().slice(0, 10);
+    link.download = `可信数据资源目录_${stamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  }
+
+
+  /* === 总渲染 === */
+  function updateFilterPanel() {
+    renderTypeFilters();
+    renderEmbeddedRegionTable();
+    updateMap();
+  }
+
+  function renderAll() {
+    updateFilterPanel();
+    renderResourceCards();
+    if (window.lucide && typeof lucide.createIcons === 'function') {
+      lucide.createIcons();
+    }
+  }
+
+
+  /* === 中国地图加载（多备用源 + 防御性） ===
+   * echarts@5 已不再随包提供 china.js，因此通过下面的策略加载：
+   *   1) 依次尝试 jsDelivr / unpkg / fastly 上的 echarts@4.9.0/map/js/china.js
+   *      (该脚本会自动调用 echarts.registerMap('china', geoJson))
+   *   2) 若上述脚本均失败，则 fetch Aliyun GeoJSON 并手动 registerMap
+   *   3) 全部失败时显示友好提示，不影响其它模块
+   */
+  function loadScript(src, timeout) {
+    timeout = timeout || 8000;
+    return new Promise(function(resolve, reject) {
+      const s = document.createElement('script');
+      let done = false;
+      const timer = setTimeout(function() {
+        if (done) return;
+        done = true;
+        s.remove();
+        reject(new Error('script timeout: ' + src));
+      }, timeout);
+      s.onload = function() {
+        if (done) return;
+        done = true; clearTimeout(timer); resolve();
+      };
+      s.onerror = function() {
+        if (done) return;
+        done = true; clearTimeout(timer); reject(new Error('script error: ' + src));
+      };
+      s.src = src;
+      document.head.appendChild(s);
+    });
+  }
+
+  function normalizeChinaGeoJson(geoJson) {
+    if (!geoJson || !geoJson.features) return geoJson;
+    geoJson.features.forEach(function(f) {
+      if (f.properties && f.properties.name && PROVINCE_NAME_MAP[f.properties.name]) {
+        f.properties.name = PROVINCE_NAME_MAP[f.properties.name];
+      }
+    });
+    return geoJson;
+  }
+
+  async function loadChinaMap() {
+    if (typeof echarts === 'undefined') {
+      throw new Error('ECharts 主库未加载');
+    }
+
+    if (echarts.getMap && echarts.getMap('china')) {
+      return true;
+    }
+
+    const scriptSources = [
+      'https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/js/china.js',
+      'https://fastly.jsdelivr.net/npm/echarts@4.9.0/map/js/china.js',
+      'https://unpkg.com/echarts@4.9.0/map/js/china.js'
+    ];
+
+    for (const src of scriptSources) {
+      try {
+        await loadScript(src);
+        if (echarts.getMap && echarts.getMap('china')) {
+          console.info('[ChinaMap] loaded via script:', src);
+          return true;
+        }
+      } catch (e) {
+        console.warn('[ChinaMap] script failed:', src);
+      }
+    }
+
+    /* 最后兜底：Aliyun GeoJSON */
+    const jsonSources = [
+      'https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json',
+      'https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/json/china.json',
+      'https://unpkg.com/echarts@4.9.0/map/json/china.json'
+    ];
+    for (const url of jsonSources) {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) continue;
+        const json = await resp.json();
+        if (!json || !json.features) continue;
+        normalizeChinaGeoJson(json);
+        echarts.registerMap('china', json);
+        console.info('[ChinaMap] loaded via fetch:', url);
+        return true;
+      } catch (e) {
+        console.warn('[ChinaMap] fetch failed:', url);
+      }
+    }
+
+    return false;
+  }
+
+
+  /* === 初始化（防御性 + 异步地图加载） === */
+  async function initMap() {
+    const mapEl = document.getElementById('regionMap');
+    const errorTip = document.getElementById('regionMapErrorTip');
+    if (!mapEl) return;
+
+    if (typeof echarts === 'undefined') {
+      console.error('[Map] echarts 主库未加载');
+      if (errorTip) errorTip.hidden = false;
+      return;
+    }
+
+    try {
+      chart = echarts.init(mapEl);
+      chart.showLoading('default', {
+        text: '正在加载中国地图...',
+        color: '#2563eb',
+        textColor: '#1d4ed8',
+        maskColor: 'rgba(255,255,255,0.7)',
+        zlevel: 0
+      });
+
+      const ok = await loadChinaMap();
+      chart.hideLoading();
+
+      if (!ok) {
+        if (errorTip) errorTip.hidden = false;
+        mapAvailable = false;
+        return;
+      }
+
+      mapAvailable = true;
+
+      chart.on('click', function(params) {
+        if (params.seriesType === 'effectScatter' && params.data && params.data.region) {
+          selectRegion(params.data.region.region);
+          return;
+        }
+        if (params.seriesType === 'map') {
+          selectProvince(params.name);
+        }
+      });
+
+      updateMap();
+    } catch (e) {
+      console.error('[Map] init failed:', e);
+      if (chart) {
+        try { chart.hideLoading(); } catch (_) {}
+      }
+      if (errorTip) errorTip.hidden = false;
+      mapAvailable = false;
+    }
+  }
+
+  function init() {
+    /* 同步部分先渲染：即使地图加载失败，类型筛选 / 表格 / 卡片 / 导出仍可用 */
+    try {
+      renderTypeFilters();
+      renderEmbeddedRegionTable();
+      renderResourceCards();
+      const statRegionsEl = document.getElementById('statRegions');
+      if (statRegionsEl) statRegionsEl.textContent = regionResources.length;
+      if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+      }
+    } catch (e) {
+      console.error('[Init] render failed:', e);
+    }
+
+    /* 异步地图初始化（不阻塞同步渲染） */
+    initMap();
+
+    window.addEventListener('resize', function() {
+      if (chart) {
+        try { chart.resize(); } catch (_) {}
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+</script>
+
+</body>
+</html>
